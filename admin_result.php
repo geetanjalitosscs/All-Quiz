@@ -41,19 +41,6 @@ $score = 0;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             letter-spacing: 0.5px;
         }
-        .warning-banner {
-            background: linear-gradient(135deg, #d32f2f 0%, #f44336 100%);
-            color: white;
-            text-align: center;
-            padding: 15px;
-            font-weight: 600;
-            font-size: 16px;
-            border-bottom: 3px solid #b71c1c;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
         .container {
             max-width: 1100px;
             margin: 30px auto;
@@ -82,6 +69,11 @@ $score = 0;
             margin: 0;
             font-size: 36px;
             font-weight: 700;
+        }
+        .score-card p {
+            margin: 10px 0 0 0;
+            font-size: 18px;
+            opacity: 0.9;
         }
         table {
             border-collapse: collapse;
@@ -129,9 +121,6 @@ $score = 0;
     </style>
 </head>
 <body>
-    <div class="warning-banner">
-        ⚠️ DO NOT GO BACK OR RELOAD THE PAGE - Otherwise your all progress will be gone!
-    </div>
     <header>Toss Consultancy Services</header>
     <div class="container">
         <h2>Result</h2>
@@ -143,7 +132,7 @@ $score = 0;
         ?>
         <div class="score-card">
             <h3>Total Score: <?php echo $score; ?> / 50</h3>
-            <p style="margin: 10px 0 0 0; font-size: 18px; opacity: 0.9;">Percentage: <?php echo number_format($percentage, 1); ?>%</p>
+            <p>Percentage: <?php echo number_format($percentage, 1); ?>%</p>
         </div>
         <table>
             <tr>
@@ -166,13 +155,5 @@ $score = 0;
             ?>
         </table>
     </div>
-    <script>
-        // Prevent back button navigation
-        history.pushState(null, null, location.href);
-        window.onpopstate = function(event) {
-            history.pushState(null, null, location.href);
-            alert('⚠️ DO NOT GO BACK OR RELOAD THE PAGE - Otherwise your all progress will be gone!');
-        };
-    </script>
 </body>
 </html>
