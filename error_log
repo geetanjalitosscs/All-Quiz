@@ -1,0 +1,25 @@
+[28-May-2025 09:43:13 UTC] PHP Warning:  mysqli::__construct(): (42000/1044): Access denied for user 'edueyeco_flutter_quiz'@'localhost' to database 'edueyeco_flutter_quiz' in /home/edueyeco/public_html/toss-quiz/db.php on line 10
+[28-May-2025 09:48:19 UTC] PHP Notice:  Undefined variable: min in /home/edueyeco/public_html/toss-quiz/quiz.php on line 21
+[28-May-2025 09:48:19 UTC] PHP Warning:  Use of undefined constant sec - assumed 'sec' (this will throw an Error in a future version of PHP) in /home/edueyeco/public_html/toss-quiz/quiz.php on line 21
+[28-May-2025 09:48:19 UTC] PHP Notice:  Undefined variable: 0 in /home/edueyeco/public_html/toss-quiz/quiz.php on line 21
+[28-May-2025 09:48:19 UTC] PHP Notice:  Undefined variable: sec in /home/edueyeco/public_html/toss-quiz/quiz.php on line 21
+[28-May-2025 10:23:53 UTC] PHP Fatal error:  Uncaught Error: Call to a member function fetch_assoc() on bool in /home/edueyeco/public_html/toss-quiz/admin_view.php:70
+Stack trace:
+#0 {main}
+  thrown in /home/edueyeco/public_html/toss-quiz/admin_view.php on line 70
+[30-May-2025 11:24:46 UTC] PHP Notice:  Undefined index: answers in /home/edueyeco/public_html/toss-quiz/submit_quiz.php on line 8
+[30-May-2025 11:24:46 UTC] PHP Warning:  Invalid argument supplied for foreach() in /home/edueyeco/public_html/toss-quiz/submit_quiz.php on line 10
+[31-May-2025 10:26:50 UTC] PHP Fatal error:  Uncaught Error: Call to undefined method mysqli_stmt::get_result() in /home/edueyeco/public_html/toss-quiz/admin_result.php:20
+Stack trace:
+#0 {main}
+  thrown in /home/edueyeco/public_html/toss-quiz/admin_result.php on line 20
+[31-May-2025 10:26:51 UTC] PHP Fatal error:  Uncaught Error: Call to undefined method mysqli_stmt::get_result() in /home/edueyeco/public_html/toss-quiz/admin_result.php:20
+Stack trace:
+#0 {main}
+  thrown in /home/edueyeco/public_html/toss-quiz/admin_result.php on line 20
+[05-Nov-2025 08:32:28 UTC] PHP Notice:  Undefined index: answers in /home/edueyeco/public_html/toss-quiz/submit_quiz.php on line 8
+[05-Nov-2025 08:32:28 UTC] PHP Warning:  Invalid argument supplied for foreach() in /home/edueyeco/public_html/toss-quiz/submit_quiz.php on line 10
+[05-Nov-2025 08:32:57 UTC] PHP Notice:  Undefined index: answers in /home/edueyeco/public_html/toss-quiz/submit_quiz.php on line 8
+[05-Nov-2025 08:32:57 UTC] PHP Warning:  Invalid argument supplied for foreach() in /home/edueyeco/public_html/toss-quiz/submit_quiz.php on line 10
+[05-Nov-2025 08:32:57 UTC] PHP Notice:  Undefined index: answers in /home/edueyeco/public_html/toss-quiz/submit_quiz.php on line 8
+[05-Nov-2025 08:32:57 UTC] PHP Warning:  Invalid argument supplied for foreach() in /home/edueyeco/public_html/toss-quiz/submit_quiz.php on line 10
