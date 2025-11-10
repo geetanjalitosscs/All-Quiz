@@ -113,6 +113,30 @@
       transform: translateY(0);
     }
 
+    select {
+      width: 100%;
+      padding: 14px 16px;
+      margin-top: 5px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 15px;
+      transition: all 0.3s ease;
+      background: #fafafa;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      padding-right: 40px;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #004080;
+      background: white;
+      box-shadow: 0 0 0 3px rgba(0, 64, 128, 0.1);
+    }
+
     input:invalid {
       border-color: #ff6b6b;
     }
@@ -150,8 +174,25 @@
       </div>
 
       <div class="form-group">
-        <label>Position:</label>
-        <input type="text" name="position" value="Back-end Developer" readonly required>
+        <label>Role:</label>
+        <select name="role" id="role" required>
+          <option value="">Select your role</option>
+          <option value="Backend Developer">Backend Developer</option>
+          <option value="Python Developer">Python Developer</option>
+          <option value="Flutter Developer">Flutter Developer</option>
+          <option value="Mern Developer">Mern Developer</option>
+          <option value="Full Stack Developer">Full Stack Developer</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Level:</label>
+        <select name="level" id="level" required>
+          <option value="">Select your level</option>
+          <option value="Beginner">Beginner</option>
+          <option value="Intermediate">Intermediate</option>
+          <option value="Advanced">Advanced</option>
+        </select>
       </div>
 
       <div class="form-group">
@@ -168,13 +209,43 @@
       <div class="form-group">
         <label>Email:</label>
         <input type="email" name="email" required placeholder="Enter your email address">
+        <div class="error-message" id="duplicateMsg" style="display:none;">User already attempt. Use different phone number and email.</div>
       </div>
 
-      <input type="submit" value="Start Quiz">
+      <input type="submit" id="startBtn" value="Start Quiz">
     </form>
   </div>
 
   <script>
+    // Client-side duplicate attempt check on Start Quiz button click (AJAX before submit)
+    document.getElementById('startBtn').addEventListener('click', async function(e) {
+      e.preventDefault();
+      const form = this.form;
+      // Trigger HTML5 validation first
+      if (!form.reportValidity()) return;
+
+      const mobile = document.getElementById('mobile').value;
+      const email = document.querySelector('input[name="email"]').value.trim();
+      try {
+        const resp = await fetch('check_user_attempt.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ email, mobile })
+        });
+        const data = await resp.json();
+        if (data && data.attempted) {
+          // Show inline message instead of popup
+          const dup = document.getElementById('duplicateMsg');
+          dup.style.display = 'block';
+          return;
+        }
+        // Not attempted, proceed with real submit
+        form.submit();
+      } catch (err) {
+        // On error, let the form submit
+        form.submit();
+      }
+    });
     // Additional validation for phone number
     document.getElementById('mobile').addEventListener('input', function(e) {
       // Remove any non-numeric characters
@@ -201,18 +272,7 @@
       }
     });
 
-    // Form validation before submit
-    document.querySelector('form').addEventListener('submit', function(e) {
-      const mobile = document.getElementById('mobile').value;
-      const mobilePattern = /^[6789]\d{9}$/; // Exactly 10 digits: first digit 6-9, followed by 9 more digits
-      
-      if (!mobilePattern.test(mobile)) {
-        e.preventDefault();
-        alert('Phone number must be exactly 10 digits starting with 6, 7, 8, or 9');
-        document.getElementById('mobile').focus();
-        return false;
-      }
-    });
+    // (Moved submit validation above into unified handler)
   </script>
 
 </body>

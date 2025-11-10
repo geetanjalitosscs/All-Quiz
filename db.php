@@ -5,7 +5,7 @@
 $host = 'localhost';
 $user = 'root';
 $pass = '';
-$db   = 'back-end_developer_quiz';
+$db   = 'all_assessment_quiz';
 
 $conn = new mysqli($host, $user, $pass, $db);
 

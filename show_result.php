@@ -3,16 +3,35 @@
 // File: show_result.php
 // ===============================
 include 'db.php';
-$user_id = $_GET['user_id'];
-$query = "
-SELECT q.question, q.option_a, q.option_b, q.option_c, q.option_d, q.correct_option,
-       r.selected_option, r.is_correct
-FROM responses r
-JOIN questions q ON r.question_id = q.id
-WHERE r.user_id = $user_id
-";
+$user_id = (int)($_GET['user_id'] ?? 0);
 
-$result = $conn->query($query);
+// Determine role → table name for this user
+$roleResult = $conn->query("SELECT role FROM users WHERE id = {$user_id} LIMIT 1");
+$roleRow = $roleResult ? $roleResult->fetch_assoc() : null;
+$role = $roleRow ? $roleRow['role'] : '';
+$roleToTable = [
+    'Backend Developer' => 'backend_mcq_questions',
+    'Python Developer'  => 'python_mcq_questions',
+    'Flutter Developer' => 'flutter_mcq_questions',
+    'Mern Developer'    => 'mern_mcq_questions',
+    'Full Stack Developer' => 'fullstack_mcq_questions',
+];
+$questionsTable = $roleToTable[$role] ?? null;
+if ($questionsTable === null) {
+    die('Invalid role for result view.');
+}
+
+// Load responses joined with the correct questions table
+$stmt = $conn->prepare("
+    SELECT q.question, q.option_a, q.option_b, q.option_c, q.option_d, q.correct_option,
+           r.selected_option, r.is_correct
+    FROM responses r
+    JOIN {$questionsTable} q ON r.question_id = q.id
+    WHERE r.user_id = ?
+");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
 $score = 0;
 ?>
 <!DOCTYPE html>
@@ -125,13 +144,16 @@ $score = 0;
     <div class="container">
         <h2>Your Result</h2>
         <?php
+        $rows = [];
         while ($row = $result->fetch_assoc()) {
             if ($row['is_correct']) $score++;
+            $rows[] = $row;
         }
-        $percentage = ($score / 50) * 100;
+        $totalQuestions = count($rows);
+        $percentage = $totalQuestions > 0 ? ($score / $totalQuestions) * 100 : 0;
         ?>
         <div class="score-card">
-            <h3>Total Score: <?php echo $score; ?> / 50</h3>
+            <h3>Total Score: <?php echo $score; ?> / <?php echo $totalQuestions; ?></h3>
             <p>Percentage: <?php echo number_format($percentage, 1); ?>%</p>
         </div>
         <table>
@@ -142,8 +164,7 @@ $score = 0;
                 <th>Status</th>
             </tr>
             <?php
-            $result->data_seek(0); // Reset result pointer
-            while ($row = $result->fetch_assoc()) {
+            foreach ($rows as $row) {
                 $status = $row['is_correct'] ? '<span class="status-correct">✔️ Correct</span>' : '<span class="status-incorrect">❌ Incorrect</span>';
                 echo "<tr>";
                 echo "<td class='question-text'>{$row['question']}</td>";
