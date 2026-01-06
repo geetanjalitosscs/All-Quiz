@@ -126,6 +126,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $_SESSION['quiz_user_id'] = $user_id;
     $_SESSION['quiz_role'] = $role;
     $_SESSION['quiz_level'] = $level;
+    $_SESSION['quiz_name'] = $_POST['name'] ?? '';
+    $_SESSION['quiz_mobile'] = $mobile;
+    
+    // Fetch user details for display
+    $userStmt = $conn->prepare("SELECT name, mobile FROM users WHERE id = ?");
+    $userStmt->bind_param("i", $user_id);
+    $userStmt->execute();
+    $userResult = $userStmt->get_result();
+    $userData = $userResult->fetch_assoc();
+    $userName = $userData['name'] ?? $_POST['name'] ?? '';
+    $userMobile = $userData['mobile'] ?? $mobile ?? '';
+    $userStmt->close();
 
     // Fetch 50 random questions from the selected role table filtered by level.
     // Match level/role case-insensitively and accept both 'advanced' and 'advance'.
@@ -174,191 +186,152 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <html>
 <head>
     <title>Quiz - Toss Consultancy Services</title>
-    <style>
-        * {
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
-            -webkit-user-drag: none;
-        }
-        header {
-            background: linear-gradient(135deg, #004080 0%, #0056b3 100%);
-            color: white;
-            padding: 25px 20px;
-            text-align: center;
-            font-size: 28px;
-            font-weight: 600;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            letter-spacing: 0.5px;
-        }
-        .container {
-            max-width: 900px;
-            margin: 20px auto;
-            background: white;
-            padding: 30px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            border-radius: 12px;
-        }
-        .question-block {
-            display: none;
-        }
-        .question-block.active {
-            display: block;
-        }
-        .question-item {
-            margin-bottom: 25px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border-left: 4px solid #004080;
-        }
-        .question-item p {
-            font-size: 16px;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 15px;
-            line-height: 1.6;
-        }
-        .question-item label {
-            display: flex;
-            align-items: center;
-            padding: 12px 15px;
-            margin: 8px 0;
-            background: white;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 15px;
-        }
-        .question-item label:hover {
-            background: #f0f7ff;
-            border-color: #004080;
-            transform: translateX(5px);
-        }
-        .question-item input[type="radio"] {
-            margin-right: 10px;
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-            accent-color: #004080;
-        }
-        .question-item input[type="radio"]:checked {
-            background: #004080;
-        }
-        .question-item label:has(input[type="radio"]:checked) {
-            background: #e3f2fd;
-            border-color: #004080;
-            font-weight: 600;
-        }
-        .question-item hr {
-            border: none;
-            border-top: 2px solid #e0e0e0;
-            margin: 20px 0;
-        }
-        #timer {
-            font-size: 20px;
-            font-weight: 700;
-            margin-bottom: 25px;
-            color: #d32f2f;
-            text-align: center;
-            padding: 15px;
-            background: #fff3cd;
-            border-radius: 8px;
-            border: 2px solid #ffc107;
-            box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
-        }
-        .btn {
-            padding: 12px 30px;
-            background: linear-gradient(135deg, #004080 0%, #0056b3 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0, 64, 128, 0.3);
-            margin: 0 10px;
-        }
-        .btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 64, 128, 0.4);
-        }
-        .btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            opacity: 0.6;
-        }
-        .btn-group {
-            text-align: center;
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 2px solid #e0e0e0;
-        }
-        .warning-banner {
-            background: linear-gradient(135deg, #d32f2f 0%, #f44336 100%);
-            color: white;
-            text-align: center;
-            padding: 15px;
-            font-weight: 600;
-            font-size: 16px;
-            border-bottom: 3px solid #b71c1c;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
-    </style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="assets/app.css">
 </head>
-<body>
+<body class="app-shell app-shell-quiz">
     <div class="warning-banner">
-        ⚠️ DO NOT GO BACK OR RELOAD THE PAGE - Otherwise your all progress will be gone!
+        <strong>Do not go back or reload.</strong> Your assessment progress will be lost.
     </div>
-    <header>Toss Consultancy Services</header>
-    <div class="container">
-        <div id="timer">Time Left: 60:00</div>
-        <form action="submit_quiz.php" method="POST" id="quizForm">
-            <input type="hidden" name="user_id" value="<?php echo $user_id; ?>">
-            <input type="hidden" name="role" value="<?php echo htmlspecialchars($role); ?>">
-            <input type="hidden" name="level" value="<?php echo htmlspecialchars($level); ?>">
-            <?php
-            $page = 0;
-            foreach ($question_data as $index => $q) {
-                $block = intdiv($index, 10);
-                if ($index % 10 == 0) echo "<div class='question-block" . ($block == 0 ? " active" : "") . "' id='block-$block'>";
 
-                echo "<div class='question-item'>";
-                echo "<p><strong>Q" . ($index + 1) . ". {$q['question']}</strong></p>";
-                echo "<label><input type='radio' name='answers[{$q['id']}]' value='A'> A) {$q['option_a']}</label>";
-                echo "<label><input type='radio' name='answers[{$q['id']}]' value='B'> B) {$q['option_b']}</label>";
-                echo "<label><input type='radio' name='answers[{$q['id']}]' value='C'> C) {$q['option_c']}</label>";
-                echo "<label><input type='radio' name='answers[{$q['id']}]' value='D'> D) {$q['option_d']}</label>";
-                echo "</div>";
-
-                if ($index % 10 == 9 || $index == count($question_data) - 1) {
-                    echo "</div>";
-                    $page++;
-                }
-            }
-            ?>
-            <div class="btn-group">
-                <button type="button" class="btn" id="prevBtn" onclick="changePage(-1)" disabled>← Previous</button>
-                <button type="button" class="btn" id="nextBtn" onclick="changePage(1)">Next →</button>
-                <input type="submit" class="btn" id="submitBtn" value="Submit Quiz" style="display:none;">
+    <header class="app-header">
+        <div class="app-header-inner">
+            <div class="brand-lockup">
+                <span class="brand-pill">Toss Consultancy</span>
+                <div class="brand-text">
+                    <span class="brand-title">Assessment in progress</span>
+                    <span class="brand-subtitle">
+                        <?php echo htmlspecialchars($userName); ?> · <?php echo htmlspecialchars($userMobile); ?>
+                    </span>
+                    <span class="brand-subtitle" style="font-size: 11px; margin-top: 2px; opacity: 0.9;">
+                        Role: <?php echo htmlspecialchars($role); ?> · Level: <?php echo htmlspecialchars($level); ?>
+                    </span>
+                </div>
             </div>
-        </form>
+            <div class="header-meta">
+                <span class="header-meta-pill">Timer: <span id="timer" class="timer-display">60:00</span></span>
+                <span>50 questions · Single attempt</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Modal Popup for Warnings -->
+    <div class="modal-overlay" id="warningModal">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h2 class="modal-title">Warning: Progress Will Be Lost</h2>
+            </div>
+            <div class="modal-body">
+                <p class="modal-message">
+                    <strong>Do not go back or reload the page!</strong><br><br>
+                    If you navigate away or reload this page, all your progress and answers will be permanently lost. You will need to start the assessment from the beginning.
+                </p>
+                <div class="modal-actions">
+                    <button type="button" class="modal-btn modal-btn-secondary" onclick="closeWarningModal()">
+                        Stay on Page
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <main class="app-main">
+        <div class="app-main-inner">
+            <section class="quiz-layout">
+                <div class="card quiz-main-card">
+                    <div class="card-header">
+                        <div class="badge badge-neutral">Question set</div>
+                        <h1 class="card-title">Technical multiple-choice questions</h1>
+                        <div class="quiz-header-meta">
+                            <span>Answer all questions before submitting.</span>
+                            <span class="chip">Pagination: 10 questions per page</span>
+                        </div>
+                    </div>
+
+                    <hr class="card-divider">
+
+                    <form action="submit_quiz.php" method="POST" id="quizForm">
+                        <input type="hidden" name="user_id" value="<?php echo $user_id; ?>">
+                        <input type="hidden" name="role" value="<?php echo htmlspecialchars($role); ?>">
+                        <input type="hidden" name="level" value="<?php echo htmlspecialchars($level); ?>">
+                        <?php
+                        $page = 0;
+                        $block = -1;
+                        foreach ($question_data as $index => $q) {
+                            $currentBlock = intdiv($index, 10);
+                            
+                            // Open new block when we enter a new block
+                            if ($currentBlock != $block) {
+                                // Close previous block if exists
+                                if ($block >= 0) {
+                                    echo "</div>";
+                                }
+                                $block = $currentBlock;
+                                $activeClass = ($block == 0) ? ' active' : '';
+                                echo "<div class='quiz-question-block question-block{$activeClass}' id='block-$block'>";
+                            }
+
+                            echo "<article class='quiz-question-item'>";
+                            echo "<h2 class='quiz-question-title'>Q" . ($index + 1) . ". {$q['question']}</h2>";
+                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='A'> <span>A) {$q['option_a']}</span></label>";
+                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='B'> <span>B) {$q['option_b']}</span></label>";
+                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='C'> <span>C) {$q['option_c']}</span></label>";
+                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='D'> <span>D) {$q['option_d']}</span></label>";
+                            echo "</article>";
+                        }
+                        // Close the last block
+                        if ($block >= 0) {
+                            echo "</div>";
+                        }
+                        ?>
+                        <div class="quiz-nav">
+                            <button type="button" class="btn btn-outline btn-sm" id="prevBtn" onclick="changePage(-1)" disabled>
+                                ← Previous
+                            </button>
+                            <div class="quiz-nav-right">
+                                <span class="pill-counter" id="pageIndicator">Page 1 of <?php echo ceil(count($question_data) / 10); ?></span>
+                                <button type="button" class="btn btn-outline btn-sm" id="nextBtn" onclick="changePage(1)">
+                                    Next →
+                                </button>
+                                <button type="submit" class="btn btn-primary btn-sm" id="submitBtn" style="display:none;">
+                                    Submit quiz
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <aside class="card quiz-sidebar-card">
+                    <div class="card-section-title">Session overview</div>
+                    <div class="timer-shell">
+                        <div>
+                            <div class="timer-label">Time remaining</div>
+                            <div id="timerSidebar" class="timer-value">60:00</div>
+                        </div>
+                        <div class="badge badge-danger">Auto submit on timeout</div>
+                    </div>
+
+                    <hr class="card-divider">
+
+                    <div class="card-section-title">Question progress</div>
+                    <div class="quiz-sidebar-meta">
+                        <span><strong>Total</strong>: <?php echo count($question_data); ?> questions</span>
+                        <span id="answeredCountLabel"><strong>Answered</strong>: 0</span>
+                    </div>
+                    <div class="progress-grid" id="progressGrid">
+                        <?php
+                        $totalQuestions = count($question_data);
+                        for ($i = 0; $i < $totalQuestions; $i++) {
+                            $questionNumber = $i + 1;
+                            echo "<div class='progress-dot' data-question-number='{$questionNumber}' title='Jump to question {$questionNumber}'>{$questionNumber}</div>";
+                        }
+                        ?>
+                    </div>
+                </aside>
+            </section>
+        </div>
+    </main>
 
     <script>
         // Basic deterrent: disable context menu and common developer shortcuts
@@ -370,11 +343,33 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         };
     </script>
     <script>
+        // Modal functions
+        function showWarningModal() {
+            const modal = document.getElementById('warningModal');
+            if (modal) {
+                modal.classList.add('active');
+            }
+        }
+
+        function closeWarningModal() {
+            const modal = document.getElementById('warningModal');
+            if (modal) {
+                modal.classList.remove('active');
+            }
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('warningModal')?.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeWarningModal();
+            }
+        });
+
         // Disable context menu and common developer shortcuts
         const blockMessage = 'This action is disabled on this page.';
         document.addEventListener('contextmenu', (event) => {
             event.preventDefault();
-            alert(blockMessage);
+            showWarningModal();
         });
         document.addEventListener('keydown', (event) => {
             const key = event.key.toLowerCase();
@@ -386,7 +381,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             ) {
                 event.preventDefault();
                 event.stopPropagation();
-                alert(blockMessage);
+                showWarningModal();
                 return false;
             }
             return true;
@@ -405,14 +400,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         window.addEventListener('keydown', function(e) {
             if (e.key === 'F5' || (e.ctrlKey && e.key.toLowerCase() === 'r')) {
                 e.preventDefault();
-                alert('⚠️ DO NOT RELOAD THE PAGE - Otherwise your progress will be lost!');
+                showWarningModal();
             }
         });
         // Mark quiz as started; if page is reloaded, send user back to index
         if (!sessionStorage.getItem('quizStarted')) {
             sessionStorage.setItem('quizStarted', '1');
         } else {
-            alert('You reloaded the quiz page. Redirecting to start to avoid duplicate attempt.');
+            // Show alert and redirect
+            alert('⚠️ You reloaded the quiz page. Redirecting to start to avoid duplicate attempt.');
             window.location.href = 'index.php';
         }
 
@@ -420,10 +416,68 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         const totalBlocks = <?php echo ceil(count($question_data) / 10); ?>;
         const questionIds = <?php echo json_encode(array_column($question_data, 'id')); ?>;
 
+        // Immediately scroll to top before DOM loads
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+        
+        // Ensure first block is active on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Scroll to top first
+            window.scrollTo(0, 0);
+            document.documentElement.scrollTop = 0;
+            document.body.scrollTop = 0;
+            
+            // Also scroll the main container and card
+            const mainContainer = document.querySelector('.app-main');
+            if (mainContainer) {
+                mainContainer.scrollTop = 0;
+            }
+            const card = document.querySelector('.quiz-main-card');
+            if (card) {
+                card.scrollTop = 0;
+            }
+            const form = document.getElementById('quizForm');
+            if (form) {
+                form.scrollTop = 0;
+            }
+            
+            const firstBlock = document.getElementById('block-0');
+            if (firstBlock) {
+                firstBlock.classList.add('active');
+                firstBlock.classList.add('question-block');
+            }
+            // Remove active from other blocks
+            for (let i = 1; i < totalBlocks; i++) {
+                const block = document.getElementById(`block-${i}`);
+                if (block) {
+                    block.classList.remove('active');
+                }
+            }
+            updateNav();
+            updateAnsweredProgress();
+            
+            // Force scroll to top multiple times to ensure
+            setTimeout(() => {
+                window.scrollTo(0, 0);
+                document.documentElement.scrollTop = 0;
+                document.body.scrollTop = 0;
+            }, 50);
+            setTimeout(() => {
+                window.scrollTo(0, 0);
+                document.documentElement.scrollTop = 0;
+                document.body.scrollTop = 0;
+            }, 200);
+        });
+
         function updateNav() {
             document.getElementById("prevBtn").disabled = currentBlock === 0;
-            document.getElementById("nextBtn").style.display = currentBlock === totalBlocks - 1 ? "none" : "inline-block";
-            document.getElementById("submitBtn").style.display = currentBlock === totalBlocks - 1 ? "inline-block" : "none";
+            document.getElementById("nextBtn").style.display = currentBlock === totalBlocks - 1 ? "none" : "inline-flex";
+            document.getElementById("submitBtn").style.display = currentBlock === totalBlocks - 1 ? "inline-flex" : "none";
+            const pageIndicator = document.getElementById("pageIndicator");
+            if (pageIndicator) {
+                pageIndicator.textContent = `Page ${currentBlock + 1} of ${totalBlocks}`;
+            }
         }
         function changePage(step) {
             document.getElementById(`block-${currentBlock}`).classList.remove("active");
@@ -444,7 +498,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         const timer = setInterval(() => {
             let min = Math.floor(timeLeft / 60);
             let sec = timeLeft % 60;
-            document.getElementById('timer').innerText = `Time Left: ${min}:${sec < 10 ? '0' : ''}${sec}`;
+            const formatted = `${min}:${sec < 10 ? '0' : ''}${sec}`;
+            const timerTop = document.getElementById('timer');
+            const timerSidebar = document.getElementById('timerSidebar');
+            if (timerTop) timerTop.textContent = formatted;
+            if (timerSidebar) timerSidebar.textContent = formatted;
             if (timeLeft <= 0) {
                 clearInterval(timer);
                 alert('Time is up! Submitting quiz...');
@@ -453,25 +511,99 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             timeLeft--;
         }, 1000);
 
+        // Progress tracking and jump navigation for questions (UI-only)
+        const progressGrid = document.getElementById('progressGrid');
+        const answeredCountLabel = document.getElementById('answeredCountLabel');
+
+        function updateAnsweredProgress() {
+            if (!progressGrid) return;
+            const dots = progressGrid.querySelectorAll('.progress-dot');
+            let answered = 0;
+
+            questionIds.forEach((qid, idx) => {
+                const hasAnswer = !!document.querySelector(`input[name="answers[${qid}]"]:checked`);
+                const dot = dots[idx];
+                if (dot) {
+                    dot.classList.toggle('progress-dot-answered', hasAnswer);
+                    dot.classList.toggle('progress-dot-current', Math.floor(idx / 10) === currentBlock);
+                }
+                if (hasAnswer) answered++;
+            });
+
+            if (answeredCountLabel) {
+                answeredCountLabel.textContent = `Answered: ${answered}`;
+            }
+        }
+
+        // Allow clicking on progress dots to jump directly to a question/page
+        if (progressGrid) {
+            const dots = progressGrid.querySelectorAll('.progress-dot');
+            dots.forEach((dot, idx) => {
+                dot.addEventListener('click', () => {
+                    const targetIndex = idx; // zero-based index in questionIds
+                    const targetBlock = Math.floor(targetIndex / 10);
+
+                    // Switch page if needed
+                    if (targetBlock !== currentBlock) {
+                        const currentBlockEl = document.getElementById(`block-${currentBlock}`);
+                        const targetBlockEl = document.getElementById(`block-${targetBlock}`);
+                        if (currentBlockEl && targetBlockEl) {
+                            currentBlockEl.classList.remove('active');
+                            currentBlock = targetBlock;
+                            targetBlockEl.classList.add('active');
+                            updateNav();
+                        }
+                    }
+
+                    // Scroll to top of main content area first
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    
+                    // Then scroll to the specific question within the block after a short delay
+                    setTimeout(() => {
+                        const qid = questionIds[targetIndex];
+                        const anyOption = document.querySelector(`input[name="answers[${qid}]"]`);
+                        if (anyOption) {
+                            const questionItem = anyOption.closest('.quiz-question-item');
+                            if (questionItem) {
+                                questionItem.scrollIntoView({
+                                    behavior: 'smooth',
+                                    block: 'center'
+                                });
+                            }
+                        }
+                    }, 300);
+
+                    updateAnsweredProgress();
+                });
+            });
+        }
+
+        document.querySelectorAll('#quizForm input[type="radio"]').forEach((input) => {
+            input.addEventListener('change', updateAnsweredProgress);
+        });
+        updateAnsweredProgress();
+
         // Prevent back button navigation and clear quiz data
         history.pushState(null, null, location.href);
         window.onpopstate = function(event) {
             history.pushState(null, null, location.href);
             
-            // Show popup warning
-            alert('⚠️ DO NOT GO BACK OR RELOAD THE PAGE - Otherwise your all progress will be gone!');
+            // Show modal warning
+            showWarningModal();
             
-            // Clear all form data (quiz answers)
-            document.getElementById('quizForm').reset();
-            
-            // Clear any stored data
-            localStorage.clear();
-            sessionStorage.clear();
-            
-            // Redirect to index page
+            // Clear all form data (quiz answers) after a delay
             setTimeout(function() {
-                window.location.href = 'index.php';
-            }, 100);
+                document.getElementById('quizForm').reset();
+                
+                // Clear any stored data
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // Redirect to index page after showing warning
+                setTimeout(function() {
+                    window.location.href = 'index.php';
+                }, 2000);
+            }, 500);
         };
 
         // When submitting, allow navigation (remove beforeunload) and block double-submit

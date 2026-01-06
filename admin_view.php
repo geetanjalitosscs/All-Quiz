@@ -10,97 +10,53 @@ $users = $conn->query("SELECT * FROM users ORDER BY submitted_at DESC");
 <html>
 <head>
     <title>Admin - User Submissions</title>
-    <style>
-        * {
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-        }
-        header {
-            background: linear-gradient(135deg, #004080 0%, #0056b3 100%);
-            color: white;
-            text-align: center;
-            padding: 25px 20px;
-            font-size: 28px;
-            font-weight: 600;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            letter-spacing: 0.5px;
-        }
-        .container {
-            max-width: 900px;
-            margin: 30px auto;
-            background: white;
-            padding: 40px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            border-radius: 12px;
-        }
-        h2 {
-            color: #004080;
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 28px;
-            font-weight: 600;
-        }
-        ul {
-            list-style: none;
-            padding: 0;
-        }
-        li {
-            margin: 15px 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-            border-radius: 10px;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            border-left: 4px solid #004080;
-        }
-        li:hover {
-            transform: translateX(5px);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            background: linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%);
-        }
-        a {
-            text-decoration: none;
-            color: #004080;
-            font-weight: 600;
-            font-size: 16px;
-            transition: color 0.3s ease;
-        }
-        a:hover {
-            color: #0056b3;
-        }
-        .score-badge {
-            display: inline-block;
-            background: linear-gradient(135deg, #004080 0%, #0056b3 100%);
-            color: white;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: 600;
-            margin-left: 10px;
-        }
-        .no-users {
-            text-align: center;
-            color: #777;
-            margin-top: 30px;
-            padding: 40px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            font-size: 16px;
-        }
-    </style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="assets/app.css">
 </head>
-<body>
-    <header>Toss Consultancy Services</header>
-    <div class="container">
-        <h2>User Submissions</h2>
-        <ul>
+<body class="app-shell">
+    <header class="app-header">
+        <div class="app-header-inner">
+            <div class="brand-lockup">
+                <span class="brand-pill">Toss Consultancy</span>
+                <div class="brand-text">
+                    <span class="brand-title">Assessment administration</span>
+                    <span class="brand-subtitle">Candidate submissions overview</span>
+                </div>
+            </div>
+        </div>
+    </header>
+    <main class="app-main">
+        <div class="app-main-inner card">
+            <div class="card-header">
+                <div class="badge badge-neutral">User submissions</div>
+                <h1 class="card-title">Completed assessments</h1>
+                <p class="card-subtitle">Search, filter, and drill down into individual candidate results.</p>
+            </div>
+
+            <div class="filter-bar">
+                <span class="filter-bar-label">Filters</span>
+                <input
+                    type="text"
+                    id="filterSearch"
+                    class="form-control filter-input"
+                    placeholder="Search by name, email, role, or location"
+                >
+            </div>
+
+            <div class="table-shell">
+                <table class="table" id="usersTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Candidate</th>
+                            <th>Role &amp; Level</th>
+                            <th>Score</th>
+                            <th>Submitted at</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
             <?php
             $count = 1;
             if ($users && $users->num_rows > 0) {
@@ -111,17 +67,41 @@ $users = $conn->query("SELECT * FROM users ORDER BY submitted_at DESC");
 
                     $correctResult = $conn->query("SELECT COUNT(*) as correct FROM responses WHERE user_id = $user_id AND is_correct = 1");
                     $correct = $correctResult ? (int)$correctResult->fetch_assoc()['correct'] : 0;
+                    $submittedAt = !empty($u['submitted_at']) ? htmlspecialchars($u['submitted_at']) : '-';
 
-                    echo "<li>{$count}. <a href='admin_result.php?user_id={$u['id']}'>" . htmlspecialchars($u['name']) . " - " . htmlspecialchars($u['email']) . "</a> <span class='score-badge'>Score: {$correct}/{$total}</span></li>";
+                    echo "<tr>";
+                    echo "<td>{$count}</td>";
+                    echo "<td><div>" . htmlspecialchars($u['name']) . "</div><div class='text-muted' style='font-size:12px;'>" . htmlspecialchars($u['email']) . "</div></td>";
+                    echo "<td><span class='pill-role'>" . htmlspecialchars($u['role']) . "</span><br><span style='font-size:12px;' class='text-muted'>" . htmlspecialchars($u['level']) . " · " . htmlspecialchars($u['place']) . "</span></td>";
+                    echo "<td><span class='chip'>{$correct} / {$total}</span></td>";
+                    echo "<td><span style='font-size:12px;'>" . $submittedAt . "</span></td>";
+                    echo "<td><a href='admin_result.php?user_id={$u['id']}' class='muted-link'>View breakdown →</a></td>";
+                    echo "</tr>";
                     $count++;
                 }
             } else {
-                echo "<p class='no-users'>No user submissions found.</p>";
+                echo "<tr><td colspan='6'><div class='empty-state'>No user submissions found.</div></td></tr>";
             }
             ?>
-        </ul>
-    </div>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
     <script>
+        // Simple client-side filtering (UI-only)
+        const filterInput = document.getElementById('filterSearch');
+        const usersTable = document.getElementById('usersTable');
+        if (filterInput && usersTable) {
+            filterInput.addEventListener('input', function () {
+                const query = this.value.toLowerCase().trim();
+                const rows = usersTable.querySelectorAll('tbody tr');
+                rows.forEach((row) => {
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = text.includes(query) ? '' : 'none';
+                });
+            });
+        }
     </script>
 </body>
 </html>

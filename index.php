@@ -5,221 +5,131 @@
 <html>
 <head>
   <title>Quiz Registration - Toss Consultancy Services</title>
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-    
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      margin: 0;
-      padding: 0;
-      min-height: 100vh;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      user-select: none;
-      -webkit-user-drag: none;
-    }
-
-    header {
-      background: linear-gradient(135deg, #004080 0%, #0056b3 100%);
-      color: white;
-      padding: 25px 20px;
-      text-align: center;
-      font-size: 28px;
-      font-weight: 600;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      letter-spacing: 0.5px;
-    }
-
-    .container {
-      max-width: 550px;
-      margin: 40px auto;
-      background: white;
-      padding: 40px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-      border-radius: 12px;
-    }
-
-    h2 {
-      text-align: center;
-      color: #004080;
-      margin-bottom: 30px;
-      font-size: 26px;
-      font-weight: 600;
-    }
-
-    .form-group {
-      margin-bottom: 25px;
-    }
-
-    label {
-      font-weight: 600;
-      color: #333;
-      display: block;
-      margin-bottom: 8px;
-      font-size: 14px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    input[type="text"],
-    input[type="email"],
-    input[type="tel"] {
-      width: 100%;
-      padding: 14px 16px;
-      margin-top: 5px;
-      border: 2px solid #e0e0e0;
-      border-radius: 8px;
-      font-size: 15px;
-      transition: all 0.3s ease;
-      background: #fafafa;
-    }
-
-    input[type="text"]:focus,
-    input[type="email"]:focus,
-    input[type="tel"]:focus {
-      outline: none;
-      border-color: #004080;
-      background: white;
-      box-shadow: 0 0 0 3px rgba(0, 64, 128, 0.1);
-    }
-
-    input[readonly] {
-      background-color: #f5f7fa;
-      cursor: not-allowed;
-      color: #666;
-      border-color: #d0d0d0;
-    }
-
-    input[type="submit"] {
-      width: 100%;
-      padding: 16px;
-      background: linear-gradient(135deg, #004080 0%, #0056b3 100%);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      margin-top: 10px;
-      box-shadow: 0 4px 15px rgba(0, 64, 128, 0.3);
-    }
-
-    input[type="submit"]:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(0, 64, 128, 0.4);
-    }
-
-    input[type="submit"]:active {
-      transform: translateY(0);
-    }
-
-    select {
-      width: 100%;
-      padding: 14px 16px;
-      margin-top: 5px;
-      border: 2px solid #e0e0e0;
-      border-radius: 8px;
-      font-size: 15px;
-      transition: all 0.3s ease;
-      background: #fafafa;
-      cursor: pointer;
-      appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 16px center;
-      padding-right: 40px;
-    }
-
-    select:focus {
-      outline: none;
-      border-color: #004080;
-      background: white;
-      box-shadow: 0 0 0 3px rgba(0, 64, 128, 0.1);
-    }
-
-    input:invalid {
-      border-color: #ff6b6b;
-    }
-
-    input:valid:not([readonly]) {
-      border-color: #51cf66;
-    }
-
-    .error-message {
-      color: #ff6b6b;
-      font-size: 12px;
-      margin-top: 5px;
-      margin-bottom: 15px;
-      display: none;
-      font-weight: 500;
-    }
-
-    input:invalid + .error-message {
-      display: block;
-    }
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="assets/app.css">
 </head>
-<body>
+<body class="app-shell">
 
-  <header>
-    Toss Consultancy Services
+  <header class="app-header">
+    <div class="app-header-inner">
+      <div class="brand-lockup">
+        <span class="brand-pill">Toss Consultancy</span>
+        <div class="brand-text">
+          <span class="brand-title">Assessment Platform</span>
+          <span class="brand-subtitle">Standardized multi-role technical evaluation</span>
+        </div>
+      </div>
+      <div class="header-meta">
+        <span class="header-meta-pill">Secure Proctored Session</span>
+        <span>Approx. duration: 60 min</span>
+      </div>
+    </div>
   </header>
 
-  <div class="container">
-    <h2>Enter Your Details to Start the Quiz</h2>
-    <form action="quiz.php" method="POST">
-      <div class="form-group">
-        <label>Name:</label>
-        <input type="text" name="name" required placeholder="Enter your full name">
-      </div>
+  <main class="app-main">
+    <div class="app-main-inner">
+      <section class="card">
+        <div class="card-header">
+          <div class="badge badge-neutral">Candidate onboarding</div>
+          <h1 class="card-title">Enter your details to start the assessment</h1>
+          <p class="card-subtitle">
+            Please provide accurate information. Your details will be used for certification and reporting.
+          </p>
+        </div>
 
-      <div class="form-group">
-        <label>Role:</label>
-        <select name="role" id="role" required>
-          <option value="">Select your role</option>
-          <option value="Backend Developer">Backend Developer</option>
-          <option value="Python Developer">Python Developer</option>
-          <option value="Flutter Developer">Flutter Developer</option>
-          <option value="Mern Developer">Mern Developer</option>
-          <option value="Full Stack Developer">Full Stack Developer</option>
-        </select>
-      </div>
+        <hr class="card-divider">
 
-      <div class="form-group">
-        <label>Level:</label>
-        <select name="level" id="level" required>
-          <option value="">Select your level</option>
-          <option value="Beginner">Beginner</option>
-          <option value="Intermediate">Intermediate</option>
-          <option value="Advanced">Advanced</option>
-        </select>
-      </div>
+        <form action="quiz.php" method="POST" novalidate>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Full name</label>
+              <input
+                type="text"
+                name="name"
+                required
+                pattern="^[A-Za-z ]+$"
+                placeholder="Enter your full name"
+                class="form-control"
+              >
+              <p class="form-hint">Use the same name as on official records.</p>
+            </div>
 
-      <div class="form-group">
-        <label>Place:</label>
-        <input type="text" name="place" required placeholder="Enter your location">
-      </div>
+            <div class="form-group">
+              <label class="form-label">Role</label>
+              <select name="role" id="role" required class="form-select">
+                <option value="">Select your role</option>
+                <option value="Backend Developer">Backend Developer</option>
+                <option value="Python Developer">Python Developer</option>
+                <option value="Flutter Developer">Flutter Developer</option>
+                <option value="Mern Developer">Mern Developer</option>
+                <option value="Full Stack Developer">Full Stack Developer</option>
+              </select>
+            </div>
 
-      <div class="form-group">
-        <label>Phone Number:</label>
-        <input type="tel" name="mobile" id="mobile" pattern="^[6789]\d{9}$" inputmode="numeric" maxlength="10" required placeholder="Enter 10 digit number starting with 6, 7, 8, or 9">
-        <div class="error-message">Phone number must be exactly 10 digits starting with 6, 7, 8, or 9</div>
-      </div>
+            <div class="form-group">
+              <label class="form-label">Level</label>
+              <select name="level" id="level" required class="form-select">
+                <option value="">Select your level</option>
+                <option value="Beginner">Beginner</option>
+                <option value="Intermediate">Intermediate</option>
+                <option value="Advanced">Advanced</option>
+              </select>
+            </div>
 
-      <div class="form-group">
-        <label>Email:</label>
-        <input type="email" name="email" required placeholder="Enter your email address">
-        <div class="error-message" id="duplicateMsg" style="display:none;">User already attempt. Use different phone number and email.</div>
-      </div>
+            <div class="form-group">
+              <label class="form-label">Location</label>
+              <input
+                type="text"
+                name="place"
+                required
+                placeholder="City / region"
+                class="form-control"
+              >
+            </div>
 
-      <input type="submit" id="startBtn" value="Start Quiz">
-    </form>
-  </div>
+            <div class="form-group">
+              <label class="form-label">Phone number</label>
+              <input
+                type="tel"
+                name="mobile"
+                id="mobile"
+                pattern="^[6789]\d{9}$"
+                inputmode="numeric"
+                maxlength="10"
+                required
+                placeholder="10-digit number starting with 6, 7, 8, or 9"
+                class="form-control"
+              >
+              <p class="form-error" id="mobileError" style="display:none;">
+                Phone number must be exactly 10 digits starting with 6, 7, 8, or 9.
+              </p>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input
+                type="email"
+                name="email"
+                required
+                placeholder="name@company.com"
+                class="form-control"
+              >
+              <p class="form-error" id="duplicateMsg" style="display:none;">
+                User already attempted this assessment. Use a different phone number and email.
+              </p>
+            </div>
+          </div>
+
+          <div class="form-footer">
+            <button type="submit" id="startBtn" class="btn btn-primary">
+              Start assessment
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </main>
 
   <script>
     // Basic deterrent: disable context menu and common shortcuts
@@ -282,6 +192,17 @@
             this.value = this.value.substring(0, 10);
           }
         }
+      }
+    });
+
+    // Inline error visibility for mobile pattern (purely visual)
+    const mobileInput = document.getElementById('mobile');
+    const mobileError = document.getElementById('mobileError');
+    mobileInput.addEventListener('blur', function () {
+      if (this.value && !this.checkValidity()) {
+        mobileError.style.display = 'block';
+      } else {
+        mobileError.style.display = 'none';
       }
     });
 

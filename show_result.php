@@ -38,111 +38,29 @@ $score = 0;
 <html>
 <head>
     <title>Your Result - Toss Consultancy Services</title>
-    <style>
-        * {
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-        }
-        header {
-            background: linear-gradient(135deg, #004080 0%, #0056b3 100%);
-            color: white;
-            padding: 25px 20px;
-            text-align: center;
-            font-size: 28px;
-            font-weight: 600;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            letter-spacing: 0.5px;
-        }
-        .container {
-            max-width: 1100px;
-            margin: 30px auto;
-            background: white;
-            padding: 40px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            border-radius: 12px;
-        }
-        h2 {
-            color: #004080;
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 28px;
-            font-weight: 600;
-        }
-        .score-card {
-            background: linear-gradient(135deg, #004080 0%, #0056b3 100%);
-            color: white;
-            padding: 30px;
-            border-radius: 12px;
-            text-align: center;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 15px rgba(0, 64, 128, 0.3);
-        }
-        .score-card h3 {
-            margin: 0;
-            font-size: 36px;
-            font-weight: 700;
-        }
-        .score-card p {
-            margin: 10px 0 0 0;
-            font-size: 18px;
-            opacity: 0.9;
-        }
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 20px 0;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        th {
-            background: linear-gradient(135deg, #004080 0%, #0056b3 100%);
-            color: white;
-            padding: 15px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        td {
-            padding: 15px;
-            border-bottom: 1px solid #e0e0e0;
-            font-size: 14px;
-        }
-        tr:hover {
-            background: #f8f9fa;
-        }
-        tr:last-child td {
-            border-bottom: none;
-        }
-        .status-correct {
-            color: #2e7d32;
-            font-weight: 600;
-            font-size: 18px;
-        }
-        .status-incorrect {
-            color: #d32f2f;
-            font-weight: 600;
-            font-size: 18px;
-        }
-        .question-text {
-            max-width: 500px;
-            word-wrap: break-word;
-        }
-    </style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="assets/app.css">
 </head>
-<body>
-    <header>Toss Consultancy Services</header>
-    <div class="container">
-        <h2>Your Result</h2>
+<body class="app-shell">
+    <header class="app-header">
+        <div class="app-header-inner">
+            <div class="brand-lockup">
+                <span class="brand-pill">Toss Consultancy</span>
+                <div class="brand-text">
+                    <span class="brand-title">Assessment results</span>
+                    <span class="brand-subtitle">Candidate performance summary</span>
+                </div>
+            </div>
+        </div>
+    </header>
+    <main class="app-main">
+        <div class="app-main-inner card">
+            <div class="card-header">
+                <div class="badge badge-neutral">Overall performance</div>
+                <h1 class="card-title">Your result</h1>
+                <p class="card-subtitle">Review your score and question-wise breakdown below.</p>
+            </div>
         <?php
         $rows = [];
         while ($row = $result->fetch_assoc()) {
@@ -152,20 +70,50 @@ $score = 0;
         $totalQuestions = count($rows);
         $percentage = $totalQuestions > 0 ? ($score / $totalQuestions) * 100 : 0;
         ?>
-        <div class="score-card">
-            <h3>Total Score: <?php echo $score; ?> / <?php echo $totalQuestions; ?></h3>
-            <p>Percentage: <?php echo number_format($percentage, 1); ?>%</p>
-        </div>
-        <table>
-            <tr>
-                <th>Question</th>
-                <th>Selected</th>
-                <th>Correct</th>
-                <th>Status</th>
-            </tr>
+            <?php
+            $correctCount = $score;
+            $incorrectCount = max($totalQuestions - $correctCount, 0);
+            ?>
+            <div class="kpi-row">
+                <div class="kpi-card">
+                    <div class="kpi-label">Total score</div>
+                    <div class="kpi-value"><?php echo $score; ?> / <?php echo $totalQuestions; ?></div>
+                    <div class="kpi-sub">Questions answered correctly</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Percentage</div>
+                    <div class="kpi-value"><?php echo number_format($percentage, 1); ?>%</div>
+                    <div class="kpi-sub">Overall accuracy for this assessment</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Breakdown</div>
+                    <div class="kpi-value">
+                        <span class="status-chip status-chip-pass"><?php echo $correctCount; ?> correct</span>
+                        <span class="status-chip status-chip-fail"><?php echo $incorrectCount; ?> incorrect</span>
+                    </div>
+                    <div class="kpi-sub">Question-level performance</div>
+                </div>
+            </div>
+
+            <hr class="card-divider">
+
+            <div class="card-section-title">Question-wise breakdown</div>
+            <div class="table-shell">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="width:50%;">Question</th>
+                            <th>Selected</th>
+                            <th>Correct</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
             <?php
             foreach ($rows as $row) {
-                $status = $row['is_correct'] ? '<span class="status-correct">✔️ Correct</span>' : '<span class="status-incorrect">❌ Incorrect</span>';
+                $status = $row['is_correct']
+                    ? '<span class="status-chip status-chip-pass">✔ Correct</span>'
+                    : '<span class="status-chip status-chip-fail">✖ Incorrect</span>';
                 echo "<tr>";
                 echo "<td class='question-text'>{$row['question']}</td>";
                 echo "<td><strong>{$row['selected_option']}</strong></td>";
@@ -174,7 +122,10 @@ $score = 0;
                 echo "</tr>";
             }
             ?>
-        </table>
-    </div>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
 </body>
 </html>
