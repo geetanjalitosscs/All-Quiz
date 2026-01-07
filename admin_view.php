@@ -27,65 +27,69 @@ $users = $conn->query("SELECT * FROM users ORDER BY submitted_at DESC");
         </div>
     </header>
     <main class="app-main">
-        <div class="app-main-inner card">
-            <div class="card-header">
-                <div class="badge badge-neutral">User submissions</div>
-                <h1 class="card-title">Completed assessments</h1>
-                <p class="card-subtitle">Search, filter, and drill down into individual candidate results.</p>
-            </div>
+        <div class="app-main-inner">
+            <section class="card">
+                <div class="card-header">
+                    <div class="badge badge-neutral">User submissions</div>
+                    <h1 class="card-title">Completed assessments</h1>
+                    <p class="card-subtitle">Search, filter, and drill down into individual candidate results.</p>
+                </div>
 
-            <div class="filter-bar">
-                <span class="filter-bar-label">Filters</span>
-                <input
-                    type="text"
-                    id="filterSearch"
-                    class="form-control filter-input"
-                    placeholder="Search by name, email, role, or location"
-                >
-            </div>
+                <hr class="card-divider">
 
-            <div class="table-shell">
-                <table class="table" id="usersTable">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Candidate</th>
-                            <th>Role &amp; Level</th>
-                            <th>Score</th>
-                            <th>Submitted at</th>
-                            <th>Details</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            <?php
-            $count = 1;
-            if ($users && $users->num_rows > 0) {
-                while ($u = $users->fetch_assoc()) {
-                    $user_id = $u['id'];
+                <div class="filter-bar">
+                    <span class="filter-bar-label">Filters</span>
+                    <input
+                        type="text"
+                        id="filterSearch"
+                        class="form-control filter-input"
+                        placeholder="Search by name, email, role, or location"
+                    >
+                </div>
 
-                    $total = 50; // Total questions in the quiz
+                <div class="table-shell">
+                    <table class="table" id="usersTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Candidate</th>
+                                <th>Role &amp; Level</th>
+                                <th>Score</th>
+                                <th>Submitted at</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                <?php
+                $count = 1;
+                if ($users && $users->num_rows > 0) {
+                    while ($u = $users->fetch_assoc()) {
+                        $user_id = $u['id'];
 
-                    $correctResult = $conn->query("SELECT COUNT(*) as correct FROM responses WHERE user_id = $user_id AND is_correct = 1");
-                    $correct = $correctResult ? (int)$correctResult->fetch_assoc()['correct'] : 0;
-                    $submittedAt = !empty($u['submitted_at']) ? htmlspecialchars($u['submitted_at']) : '-';
+                        $total = 50; // Total questions in the quiz
 
-                    echo "<tr>";
-                    echo "<td>{$count}</td>";
-                    echo "<td><div>" . htmlspecialchars($u['name']) . "</div><div class='text-muted' style='font-size:12px;'>" . htmlspecialchars($u['email']) . "</div></td>";
-                    echo "<td><span class='pill-role'>" . htmlspecialchars($u['role']) . "</span><br><span style='font-size:12px;' class='text-muted'>" . htmlspecialchars($u['level']) . " · " . htmlspecialchars($u['place']) . "</span></td>";
-                    echo "<td><span class='chip'>{$correct} / {$total}</span></td>";
-                    echo "<td><span style='font-size:12px;'>" . $submittedAt . "</span></td>";
-                    echo "<td><a href='admin_result.php?user_id={$u['id']}' class='muted-link'>View breakdown →</a></td>";
-                    echo "</tr>";
-                    $count++;
+                        $correctResult = $conn->query("SELECT COUNT(*) as correct FROM responses WHERE user_id = $user_id AND is_correct = 1");
+                        $correct = $correctResult ? (int)$correctResult->fetch_assoc()['correct'] : 0;
+                        $submittedAt = !empty($u['submitted_at']) ? htmlspecialchars($u['submitted_at']) : '-';
+
+                        echo "<tr>";
+                        echo "<td>{$count}</td>";
+                        echo "<td><div>" . htmlspecialchars($u['name']) . "</div><div class='text-muted' style='font-size:12px;'>" . htmlspecialchars($u['email']) . "</div></td>";
+                        echo "<td><span class='pill-role'>" . htmlspecialchars($u['role']) . "</span><br><span style='font-size:12px;' class='text-muted'>" . htmlspecialchars($u['level']) . " · " . htmlspecialchars($u['place']) . "</span></td>";
+                        echo "<td><span class='chip'>{$correct} / {$total}</span></td>";
+                        echo "<td><span style='font-size:12px;'>" . $submittedAt . "</span></td>";
+                        echo "<td><a href='admin_result.php?user_id={$u['id']}' class='muted-link'>View breakdown →</a></td>";
+                        echo "</tr>";
+                        $count++;
+                    }
+                } else {
+                    echo "<tr><td colspan='6'><div class='empty-state'>No user submissions found.</div></td></tr>";
                 }
-            } else {
-                echo "<tr><td colspan='6'><div class='empty-state'>No user submissions found.</div></td></tr>";
-            }
-            ?>
-                    </tbody>
-                </table>
-            </div>
+                ?>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
         </div>
     </main>
     <script>

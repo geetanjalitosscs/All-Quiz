@@ -9,7 +9,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="assets/app.css">
 </head>
-<body class="app-shell">
+<body class="app-shell app-shell-registration">
 
   <header class="app-header">
     <div class="app-header-inner">

@@ -13,12 +13,21 @@
   box-sizing: border-box;
 }
 
-html,
+html {
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 body {
   margin: 0;
   padding: 0;
-  height: 100%;
+  min-height: 100vh;
+  height: auto;
   overflow-x: hidden;
+  overflow-y: visible;
 }
 
 body {
@@ -33,11 +42,20 @@ body {
 }
 
 /* Registration page: no scrolling, centered layout */
-body:not(.app-shell-quiz) .app-shell {
+body.app-shell-registration .app-shell {
   height: 100vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+/* Admin pages: ensure full page scrolling - body must be scrollable */
+body.app-shell:not(.app-shell-registration):not(.app-shell-quiz) {
+  height: auto;
+  min-height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
 }
 
 /* ---------------- Core Layout Shell ---------------- */
@@ -46,6 +64,17 @@ body:not(.app-shell-quiz) .app-shell {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: visible;
+  position: relative;
+}
+
+/* Admin pages: allow .app-shell to grow beyond viewport - don't trap overflow */
+body.app-shell:not(.app-shell-registration):not(.app-shell-quiz) .app-shell {
+  height: auto;
+  min-height: 100vh;
+  overflow-y: visible;
+  overflow-x: hidden;
 }
 
 .app-header {
@@ -134,13 +163,21 @@ body:not(.app-shell-quiz) .app-shell {
 
 .app-main {
   flex: 1;
-  padding: 24px 16px 40px;
+  padding: 24px 16px 60px;
   margin-top: 0;
+  margin-bottom: 40px;
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  overflow-y: auto;
   overflow-x: hidden;
+  overflow-y: visible;
+  min-height: auto;
+}
+
+/* Admin pages: ensure .app-main doesn't trap overflow and allows natural page scrolling */
+body.app-shell:not(.app-shell-registration):not(.app-shell-quiz) .app-main {
+  overflow-y: visible;
+  flex: 0 1 auto; /* don't force growth - let content determine height */
 }
 
 .app-shell-quiz .app-main {
@@ -149,7 +186,7 @@ body:not(.app-shell-quiz) .app-shell {
 }
 
 /* Registration page: prevent scrolling, center content */
-body:not(.app-shell-quiz) .app-main {
+body.app-shell-registration .app-main {
   overflow: hidden;
   padding: 20px 16px;
 }
@@ -161,7 +198,7 @@ body:not(.app-shell-quiz) .app-main {
 }
 
 /* Registration page: center card vertically */
-body:not(.app-shell-quiz) .app-main-inner {
+body.app-shell-registration .app-main-inner {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -261,9 +298,14 @@ body:not(.app-shell-quiz) .app-main-inner {
 }
 
 /* Registration page: adjust card spacing */
-body:not(.app-shell-quiz) .card {
+body.app-shell-registration .card {
   margin-top: 0;
   margin-bottom: 0;
+}
+
+/* Admin result pages: wider card for better table display */
+body.app-shell:not(.app-shell-registration):not(.app-shell-quiz) .card {
+  max-width: 1120px;
 }
 
 .card-header {
@@ -277,7 +319,7 @@ body:not(.app-shell-quiz) .card {
 }
 
 /* Registration page: tighter header spacing */
-body:not(.app-shell-quiz) .card-header {
+body.app-shell-registration .card-header {
   margin-bottom: 14px;
 }
 
@@ -323,7 +365,7 @@ body:not(.app-shell-quiz) .card-header {
 }
 
 /* Registration page: tighter spacing */
-body:not(.app-shell-quiz) .form-grid {
+body.app-shell-registration .form-grid {
   gap: 16px 18px;
 }
 
@@ -398,7 +440,7 @@ body:not(.app-shell-quiz) .form-grid {
 }
 
 /* Registration page: tighter footer spacing */
-body:not(.app-shell-quiz) .form-footer {
+body.app-shell-registration .form-footer {
   margin-top: 18px;
 }
 
@@ -764,9 +806,11 @@ input:not(:placeholder-shown):valid:not([readonly]) {
 .table-shell {
   width: 100%;
   border-radius: 12px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: auto;
   border: 1px solid #e2e8f0;
   background: #ffffff;
+  max-height: 600px;
 }
 
 .table {
@@ -777,6 +821,9 @@ input:not(:placeholder-shown):valid:not([readonly]) {
 
 .table thead {
   background: radial-gradient(circle at 0 0, #eff6ff, #e0e7ff);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .table th,
@@ -1028,4 +1075,18 @@ input:not(:placeholder-shown):valid:not([readonly]) {
   text-decoration: underline;
 }
 
+/* =========================================================
+   ADMIN PAGE SCROLLING FIX (Hotfix)
+   ---------------------------------------------------------
+   Issue: Admin pages not scrolling - content never exceeds viewport
+   Root cause: .app-main uses justify-content: center which centers content
+               and prevents document height from growing beyond 100vh
+   Solution: Remove flex centering for admin pages, allow natural vertical flow
+   ========================================================= */
+
+/* Admin pages: disable flex centering so page can grow vertically */
+body.app-shell:not(.app-shell-registration):not(.app-shell-quiz) .app-main {
+  justify-content: flex-start !important; /* remove horizontal centering - allow natural flow */
+  align-items: flex-start !important; /* ensure top alignment */
+}
 
