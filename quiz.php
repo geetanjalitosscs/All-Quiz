@@ -198,7 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <header class="app-header">
         <div class="app-header-inner">
             <div class="brand-lockup">
-                <span class="brand-pill">Toss Consultancy</span>
+                <span class="brand-pill">Toss Consultancy Services</span>
                 <div class="brand-text">
                     <span class="brand-title">Assessment in progress</span>
                     <span class="brand-subtitle">
@@ -210,6 +210,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </div>
             </div>
             <div class="header-meta">
+                <button type="button" class="theme-toggle-btn" id="themeToggle" aria-label="Toggle dark mode">
+                    <span class="theme-toggle-icon" id="themeToggleIcon">🌙</span>
+                    <span class="theme-toggle-label" id="themeToggleLabel">Dark</span>
+                </button>
                 <span class="header-meta-pill">Timer: <span id="timer" class="timer-display">60:00</span></span>
                 <span>50 questions · Single attempt</span>
             </div>
@@ -244,8 +248,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <div class="badge badge-neutral">Question set</div>
                         <h1 class="card-title">Technical multiple-choice questions</h1>
                         <div class="quiz-header-meta">
-                            <span>Answer all questions before submitting.</span>
-                            <span class="chip">Pagination: 10 questions per page</span>
+                            <span>You can skip questions if needed.</span>
+                            <span class="chip">Pagination: 1 question per page</span>
                         </div>
                     </div>
 
@@ -255,11 +259,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <input type="hidden" name="user_id" value="<?php echo $user_id; ?>">
                         <input type="hidden" name="role" value="<?php echo htmlspecialchars($role); ?>">
                         <input type="hidden" name="level" value="<?php echo htmlspecialchars($level); ?>">
+                        <input type="hidden" name="all_question_ids" value="<?php echo htmlspecialchars(json_encode(array_column($question_data, 'id'))); ?>">
                         <?php
                         $page = 0;
                         $block = -1;
                         foreach ($question_data as $index => $q) {
-                            $currentBlock = intdiv($index, 10);
+                            $currentBlock = intdiv($index, 1);
                             
                             // Open new block when we enter a new block
                             if ($currentBlock != $block) {
@@ -290,7 +295,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 ← Previous
                             </button>
                             <div class="quiz-nav-right">
-                                <span class="pill-counter" id="pageIndicator">Page 1 of <?php echo ceil(count($question_data) / 10); ?></span>
+                                <span class="pill-counter" id="pageIndicator">Page 1 of <?php echo ceil(count($question_data) / 1); ?></span>
                                 <button type="button" class="btn btn-outline btn-sm" id="nextBtn" onclick="changePage(1)">
                                     Next →
                                 </button>
@@ -333,6 +338,41 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </div>
     </main>
 
+    <script>
+        // Theme toggle (light / dark) for quiz page
+        (function() {
+            const body = document.body;
+            const toggleBtn = document.getElementById('themeToggle');
+            const toggleIcon = document.getElementById('themeToggleIcon');
+            const toggleLabel = document.getElementById('themeToggleLabel');
+
+            function applyTheme(theme) {
+                if (theme === 'dark') {
+                    body.classList.add('dark-mode');
+                    if (toggleIcon) toggleIcon.textContent = '☀️';
+                    if (toggleLabel) toggleLabel.textContent = 'Light';
+                } else {
+                    body.classList.remove('dark-mode');
+                    if (toggleIcon) toggleIcon.textContent = '🌙';
+                    if (toggleLabel) toggleLabel.textContent = 'Dark';
+                }
+            }
+
+            // Initial theme from localStorage or prefers-color-scheme
+            const stored = window.localStorage.getItem('quiz-theme');
+            const initialTheme = stored || 'light';
+            applyTheme(initialTheme);
+
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function() {
+                    const isDark = body.classList.contains('dark-mode');
+                    const nextTheme = isDark ? 'light' : 'dark';
+                    applyTheme(nextTheme);
+                    window.localStorage.setItem('quiz-theme', nextTheme);
+                });
+            }
+        })();
+    </script>
     <script>
         // Basic deterrent: disable context menu and common developer shortcuts
         document.addEventListener('contextmenu', event => event.preventDefault());
@@ -413,7 +453,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
 
         let currentBlock = 0;
-        const totalBlocks = <?php echo ceil(count($question_data) / 10); ?>;
+        const totalBlocks = <?php echo ceil(count($question_data) / 1); ?>;
         const questionIds = <?php echo json_encode(array_column($question_data, 'id')); ?>;
 
         // Immediately scroll to top before DOM loads
@@ -484,13 +524,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             currentBlock += step;
             document.getElementById(`block-${currentBlock}`).classList.add("active");
             updateNav();
-            // Only scroll to top when moving forward (Next). Do not scroll on Previous.
-            if (step > 0) {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                setTimeout(() => {
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                }, 0);
-            }
+            updateAnsweredProgress();
         }
 
         // Timer logic
@@ -525,7 +559,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 const dot = dots[idx];
                 if (dot) {
                     dot.classList.toggle('progress-dot-answered', hasAnswer);
-                    dot.classList.toggle('progress-dot-current', Math.floor(idx / 10) === currentBlock);
+                    dot.classList.toggle('progress-dot-current', Math.floor(idx / 1) === currentBlock);
                 }
                 if (hasAnswer) answered++;
             });
@@ -541,7 +575,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             dots.forEach((dot, idx) => {
                 dot.addEventListener('click', () => {
                     const targetIndex = idx; // zero-based index in questionIds
-                    const targetBlock = Math.floor(targetIndex / 10);
+                    const targetBlock = Math.floor(targetIndex / 1);
 
                     // Switch page if needed
                     if (targetBlock !== currentBlock) {
@@ -555,23 +589,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         }
                     }
 
-                    // Scroll to top of main content area first
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                    
-                    // Then scroll to the specific question within the block after a short delay
-                    setTimeout(() => {
-                        const qid = questionIds[targetIndex];
-                        const anyOption = document.querySelector(`input[name="answers[${qid}]"]`);
-                        if (anyOption) {
-                            const questionItem = anyOption.closest('.quiz-question-item');
-                            if (questionItem) {
-                                questionItem.scrollIntoView({
-                                    behavior: 'smooth',
-                                    block: 'center'
-                                });
+                    // Only scroll if page is at the top, otherwise don't scroll
+                    const isAtTop = window.scrollY === 0 || document.documentElement.scrollTop === 0;
+                    if (isAtTop) {
+                        // Scroll to top of main content area first
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        
+                        // Then scroll to the specific question within the block after a short delay
+                        setTimeout(() => {
+                            const qid = questionIds[targetIndex];
+                            const anyOption = document.querySelector(`input[name="answers[${qid}]"]`);
+                            if (anyOption) {
+                                const questionItem = anyOption.closest('.quiz-question-item');
+                                if (questionItem) {
+                                    questionItem.scrollIntoView({
+                                        behavior: 'smooth',
+                                        block: 'center'
+                                    });
+                                }
                             }
-                        }
-                    }, 300);
+                        }, 300);
+                    }
 
                     updateAnsweredProgress();
                 });
@@ -610,27 +648,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         const form = document.getElementById('quizForm');
         let submitted = false;
         form.addEventListener('submit', function(e) {
-            // Custom validation: ensure every question has an answer selected
-            for (let i = 0; i < questionIds.length; i++) {
-                const qid = questionIds[i];
-                if (!document.querySelector(`input[name=\"answers[${qid}]\"]:checked`)) {
-                    e.preventDefault();
-                    alert(`Please answer question ${i + 1} before submitting.`);
-                    // Jump to the block that contains this question
-                    const anyOption = document.querySelector(`input[name=\"answers[${qid}]\"]`);
-                    if (anyOption) {
-                        const blockEl = anyOption.closest('.question-block');
-                        if (blockEl && blockEl.id && blockEl.id.startsWith('block-')) {
-                            document.getElementById(`block-${currentBlock}`).classList.remove('active');
-                            currentBlock = parseInt(blockEl.id.replace('block-', ''), 10) || 0;
-                            document.getElementById(`block-${currentBlock}`).classList.add('active');
-                            updateNav();
-                            anyOption.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }
-                    }
-                    return false;
-                }
-            }
+            // Allow submission even if some questions are unanswered (questions can be skipped)
             if (submitted) {
                 e.preventDefault();
                 return false;

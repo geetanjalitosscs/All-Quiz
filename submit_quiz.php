@@ -32,24 +32,33 @@ if ($responseCount > 0) {
 }
 
 $answers = $_POST['answers'] ?? [];
+$allQuestionIds = json_decode($_POST['all_question_ids'] ?? '[]', true);
 
 // Prepare statements for performance and safety
 $stmtCorrect = $conn->prepare("SELECT correct_option FROM {$questionsTable} WHERE id = ?");
-$stmtInsert  = $conn->prepare("INSERT INTO responses (user_id, question_id, selected_option, is_correct) VALUES (?, ?, ?, ?)");
+$stmtInsertAnswered = $conn->prepare("INSERT INTO responses (user_id, question_id, selected_option, is_correct) VALUES (?, ?, ?, ?)");
+$stmtInsertUnanswered = $conn->prepare("INSERT INTO responses (user_id, question_id, selected_option, is_correct) VALUES (?, ?, NULL, NULL)");
 
-foreach ($answers as $qid => $selected) {
+// Save all questions - answered and unanswered
+foreach ($allQuestionIds as $qid) {
     $qid = (int)$qid;
-    $selected = strtoupper(substr($selected, 0, 1));
+    $selected = isset($answers[$qid]) ? strtoupper(substr($answers[$qid], 0, 1)) : null;
 
     $stmtCorrect->bind_param("i", $qid);
     $stmtCorrect->execute();
     $res = $stmtCorrect->get_result();
     if ($res && $row = $res->fetch_assoc()) {
-        $correct = $row['correct_option'];
-        $is_correct = ($correct === $selected) ? 1 : 0;
-
-        $stmtInsert->bind_param("iisi", $user_id, $qid, $selected, $is_correct);
-        $stmtInsert->execute();
+        if ($selected !== null) {
+            // Question was answered
+            $correct = $row['correct_option'];
+            $is_correct = ($correct === $selected) ? 1 : 0;
+            $stmtInsertAnswered->bind_param("iisi", $user_id, $qid, $selected, $is_correct);
+            $stmtInsertAnswered->execute();
+        } else {
+            // Question was not attempted - use separate statement for NULL values
+            $stmtInsertUnanswered->bind_param("ii", $user_id, $qid);
+            $stmtInsertUnanswered->execute();
+        }
     }
 }
 

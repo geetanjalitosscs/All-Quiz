@@ -46,7 +46,7 @@ $score = 0;
     <header class="app-header">
         <div class="app-header-inner">
             <div class="brand-lockup">
-                <span class="brand-pill">Toss Consultancy</span>
+                <span class="brand-pill">Toss Consultancy Services</span>
                 <div class="brand-text">
                     <span class="brand-title">Candidate result (admin)</span>
                     <span class="brand-subtitle">Detailed response breakdown</span>
@@ -69,11 +69,21 @@ $score = 0;
         }
         $totalQuestions = count($rows);
         $percentage = $totalQuestions > 0 ? ($score / $totalQuestions) * 100 : 0;
+        
+        // Calculate breakdown: correct, incorrect, and not attempted
+        $correctCount = $score;
+        $notAttemptedCount = 0;
+        $incorrectCount = 0;
+        foreach ($rows as $row) {
+            $selectedOption = $row['selected_option'];
+            $isAttempted = $selectedOption !== null && $selectedOption !== '';
+            if (!$isAttempted) {
+                $notAttemptedCount++;
+            } elseif (!$row['is_correct']) {
+                $incorrectCount++;
+            }
+        }
         ?>
-            <?php
-            $correctCount = $score;
-            $incorrectCount = max($totalQuestions - $correctCount, 0);
-            ?>
             <div class="kpi-row">
                 <div class="kpi-card">
                     <div class="kpi-label">Total score</div>
@@ -90,6 +100,7 @@ $score = 0;
                     <div class="kpi-value">
                         <span class="status-chip status-chip-pass"><?php echo $correctCount; ?> correct</span>
                         <span class="status-chip status-chip-fail"><?php echo $incorrectCount; ?> incorrect</span>
+                        <span class="status-chip" style="background: #f3f4f6; color: #6b7280; border-color: #d1d5db;"><?php echo $notAttemptedCount; ?> not attempted</span>
                     </div>
                     <div class="kpi-sub">Question-level performance</div>
                 </div>
@@ -111,12 +122,22 @@ $score = 0;
                     <tbody>
             <?php
             foreach ($rows as $row) {
-                $status = $row['is_correct']
-                    ? '<span class="status-chip status-chip-pass">✔ Correct</span>'
-                    : '<span class="status-chip status-chip-fail">✖ Incorrect</span>';
+                $selectedOption = $row['selected_option'];
+                $isAttempted = $selectedOption !== null && $selectedOption !== '';
+                
+                if (!$isAttempted) {
+                    $status = '<span class="status-chip" style="background: #f3f4f6; color: #6b7280; border-color: #d1d5db;">⊘ Not Attempted</span>';
+                    $selectedDisplay = '<span style="color: #9ca3af; font-style: italic;">-</span>';
+                } else {
+                    $status = $row['is_correct']
+                        ? '<span class="status-chip status-chip-pass">✔ Correct</span>'
+                        : '<span class="status-chip status-chip-fail">✖ Incorrect</span>';
+                    $selectedDisplay = "<strong>{$selectedOption}</strong>";
+                }
+                
                 echo "<tr>";
                 echo "<td class='question-text'>{$row['question']}</td>";
-                echo "<td><strong>{$row['selected_option']}</strong></td>";
+                echo "<td>{$selectedDisplay}</td>";
                 echo "<td><strong>{$row['correct_option']}</strong></td>";
                 echo "<td>$status</td>";
                 echo "</tr>";

@@ -14,7 +14,7 @@
   <header class="app-header">
     <div class="app-header-inner">
       <div class="brand-lockup">
-        <span class="brand-pill">Toss Consultancy</span>
+        <span class="brand-pill">Toss Consultancy Services</span>
         <div class="brand-text">
           <span class="brand-title">Assessment Platform</span>
           <span class="brand-subtitle">Standardized multi-role technical evaluation</span>
