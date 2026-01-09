@@ -93,7 +93,7 @@ $score = 0;
                     </div>
                     <div class="kpi-sub">Question-level performance</div>
                 </div>
-            </div>
+        </div>
 
             <hr class="card-divider">
 
@@ -101,12 +101,12 @@ $score = 0;
             <div class="table-shell">
                 <table class="table">
                     <thead>
-                        <tr>
+            <tr>
                             <th style="width:50%;">Question</th>
-                            <th>Selected</th>
-                            <th>Correct</th>
-                            <th>Status</th>
-                        </tr>
+                <th>Selected</th>
+                <th>Correct</th>
+                <th>Status</th>
+            </tr>
                     </thead>
                     <tbody>
             <?php
@@ -123,8 +123,8 @@ $score = 0;
             }
             ?>
                     </tbody>
-                </table>
-            </div>
+        </table>
+    </div>
         </div>
     </main>
 </body>

@@ -60,16 +60,16 @@ $users = $conn->query("SELECT * FROM users ORDER BY submitted_at DESC");
                             </tr>
                         </thead>
                         <tbody>
-                <?php
-                $count = 1;
-                if ($users && $users->num_rows > 0) {
-                    while ($u = $users->fetch_assoc()) {
-                        $user_id = $u['id'];
+            <?php
+            $count = 1;
+            if ($users && $users->num_rows > 0) {
+                while ($u = $users->fetch_assoc()) {
+                    $user_id = $u['id'];
 
-                        $total = 50; // Total questions in the quiz
+                    $total = 50; // Total questions in the quiz
 
-                        $correctResult = $conn->query("SELECT COUNT(*) as correct FROM responses WHERE user_id = $user_id AND is_correct = 1");
-                        $correct = $correctResult ? (int)$correctResult->fetch_assoc()['correct'] : 0;
+                    $correctResult = $conn->query("SELECT COUNT(*) as correct FROM responses WHERE user_id = $user_id AND is_correct = 1");
+                    $correct = $correctResult ? (int)$correctResult->fetch_assoc()['correct'] : 0;
                         $submittedAt = !empty($u['submitted_at']) ? htmlspecialchars($u['submitted_at']) : '-';
 
                         echo "<tr>";
@@ -80,17 +80,17 @@ $users = $conn->query("SELECT * FROM users ORDER BY submitted_at DESC");
                         echo "<td><span style='font-size:12px;'>" . $submittedAt . "</span></td>";
                         echo "<td><a href='admin_result.php?user_id={$u['id']}' class='muted-link'>View breakdown →</a></td>";
                         echo "</tr>";
-                        $count++;
-                    }
-                } else {
-                    echo "<tr><td colspan='6'><div class='empty-state'>No user submissions found.</div></td></tr>";
+                    $count++;
                 }
-                ?>
+            } else {
+                    echo "<tr><td colspan='6'><div class='empty-state'>No user submissions found.</div></td></tr>";
+            }
+            ?>
                         </tbody>
                     </table>
                 </div>
             </section>
-        </div>
+    </div>
     </main>
     <script>
         // Simple client-side filtering (UI-only)

@@ -37,7 +37,7 @@ $score = 0;
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Your Result - Toss Consultancy Services</title>
+    <title>Assessment Completed - Toss Consultancy Services</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="assets/app.css">
@@ -46,84 +46,21 @@ $score = 0;
     <header class="app-header">
         <div class="app-header-inner">
             <div class="brand-lockup">
-                <span class="brand-pill">Toss Consultancy</span>
+                <span class="brand-pill">TOSS CONSULTANCY</span>
                 <div class="brand-text">
-                    <span class="brand-title">Assessment results</span>
-                    <span class="brand-subtitle">Candidate performance summary</span>
+                    <span class="brand-title">ASSESSMENT COMPLETED</span>
+                    <span class="brand-subtitle">Thank you for your participation</span>
                 </div>
             </div>
         </div>
     </header>
     <main class="app-main">
-        <div class="app-main-inner card">
+        <div class="app-main-inner card confirmation-card">
             <div class="card-header">
-                <div class="badge badge-neutral">Overall performance</div>
-                <h1 class="card-title">Your result</h1>
-                <p class="card-subtitle">Review your score and question-wise breakdown below.</p>
-            </div>
-        <?php
-        $rows = [];
-        while ($row = $result->fetch_assoc()) {
-            if ($row['is_correct']) $score++;
-            $rows[] = $row;
-        }
-        $totalQuestions = count($rows);
-        $percentage = $totalQuestions > 0 ? ($score / $totalQuestions) * 100 : 0;
-        ?>
-            <?php
-            $correctCount = $score;
-            $incorrectCount = max($totalQuestions - $correctCount, 0);
-            ?>
-            <div class="kpi-row">
-                <div class="kpi-card">
-                    <div class="kpi-label">Total score</div>
-                    <div class="kpi-value"><?php echo $score; ?> / <?php echo $totalQuestions; ?></div>
-                    <div class="kpi-sub">Questions answered correctly</div>
-                </div>
-                <div class="kpi-card">
-                    <div class="kpi-label">Percentage</div>
-                    <div class="kpi-value"><?php echo number_format($percentage, 1); ?>%</div>
-                    <div class="kpi-sub">Overall accuracy for this assessment</div>
-                </div>
-                <div class="kpi-card">
-                    <div class="kpi-label">Breakdown</div>
-                    <div class="kpi-value">
-                        <span class="status-chip status-chip-pass"><?php echo $correctCount; ?> correct</span>
-                        <span class="status-chip status-chip-fail"><?php echo $incorrectCount; ?> incorrect</span>
-                    </div>
-                    <div class="kpi-sub">Question-level performance</div>
-                </div>
-            </div>
-
-            <hr class="card-divider">
-
-            <div class="card-section-title">Question-wise breakdown</div>
-            <div class="table-shell">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th style="width:50%;">Question</th>
-                            <th>Selected</th>
-                            <th>Correct</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            <?php
-            foreach ($rows as $row) {
-                $status = $row['is_correct']
-                    ? '<span class="status-chip status-chip-pass">✔ Correct</span>'
-                    : '<span class="status-chip status-chip-fail">✖ Incorrect</span>';
-                echo "<tr>";
-                echo "<td class='question-text'>{$row['question']}</td>";
-                echo "<td><strong>{$row['selected_option']}</strong></td>";
-                echo "<td><strong>{$row['correct_option']}</strong></td>";
-                echo "<td>$status</td>";
-                echo "</tr>";
-            }
-            ?>
-                    </tbody>
-                </table>
+                <div class="badge badge-success">SUBMISSION SUCCESSFUL</div>
+                <h1 class="card-title">THANK YOU FOR COMPLETING THE ASSESSMENT</h1>
+                <p class="card-subtitle">Your responses have been submitted successfully.</p>
+                <p class="card-subtitle" style="margin-top: 12px;">Our team will review your assessment and contact you regarding the next steps.</p>
             </div>
         </div>
     </main>

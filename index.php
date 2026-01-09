@@ -36,13 +36,13 @@
           <p class="card-subtitle">
             Please provide accurate information. Your details will be used for certification and reporting.
           </p>
-        </div>
+  </div>
 
         <hr class="card-divider">
 
         <form action="quiz.php" method="POST" novalidate>
           <div class="form-grid">
-            <div class="form-group">
+      <div class="form-group">
               <label class="form-label">Full name</label>
               <input
                 type="text"
@@ -53,31 +53,31 @@
                 class="form-control"
               >
               <p class="form-hint">Use the same name as on official records.</p>
-            </div>
+      </div>
 
-            <div class="form-group">
+      <div class="form-group">
               <label class="form-label">Role</label>
               <select name="role" id="role" required class="form-select">
-                <option value="">Select your role</option>
-                <option value="Backend Developer">Backend Developer</option>
-                <option value="Python Developer">Python Developer</option>
-                <option value="Flutter Developer">Flutter Developer</option>
-                <option value="Mern Developer">Mern Developer</option>
-                <option value="Full Stack Developer">Full Stack Developer</option>
-              </select>
-            </div>
+          <option value="">Select your role</option>
+          <option value="Backend Developer">Backend Developer</option>
+          <option value="Python Developer">Python Developer</option>
+          <option value="Flutter Developer">Flutter Developer</option>
+          <option value="Mern Developer">Mern Developer</option>
+          <option value="Full Stack Developer">Full Stack Developer</option>
+        </select>
+      </div>
 
-            <div class="form-group">
+      <div class="form-group">
               <label class="form-label">Level</label>
               <select name="level" id="level" required class="form-select">
-                <option value="">Select your level</option>
-                <option value="Beginner">Beginner</option>
-                <option value="Intermediate">Intermediate</option>
-                <option value="Advanced">Advanced</option>
-              </select>
-            </div>
+          <option value="">Select your level</option>
+          <option value="Beginner">Beginner</option>
+          <option value="Intermediate">Intermediate</option>
+          <option value="Advanced">Advanced</option>
+        </select>
+      </div>
 
-            <div class="form-group">
+      <div class="form-group">
               <label class="form-label">Location</label>
               <input
                 type="text"
@@ -86,9 +86,9 @@
                 placeholder="City / region"
                 class="form-control"
               >
-            </div>
+      </div>
 
-            <div class="form-group">
+      <div class="form-group">
               <label class="form-label">Phone number</label>
               <input
                 type="tel"
@@ -104,9 +104,9 @@
               <p class="form-error" id="mobileError" style="display:none;">
                 Phone number must be exactly 10 digits starting with 6, 7, 8, or 9.
               </p>
-            </div>
+      </div>
 
-            <div class="form-group">
+      <div class="form-group">
               <label class="form-label">Email</label>
               <input
                 type="email"
@@ -119,16 +119,16 @@
                 User already attempted this assessment. Use a different phone number and email.
               </p>
             </div>
-          </div>
+      </div>
 
           <div class="form-footer">
             <button type="submit" id="startBtn" class="btn btn-primary">
               Start assessment
             </button>
           </div>
-        </form>
+    </form>
       </section>
-    </div>
+  </div>
   </main>
 
   <script>
