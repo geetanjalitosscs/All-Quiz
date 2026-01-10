@@ -214,7 +214,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <span class="theme-toggle-icon" id="themeToggleIcon">🌙</span>
                     <span class="theme-toggle-label" id="themeToggleLabel">Dark</span>
                 </button>
-                <span class="header-meta-pill">Timer: <span id="timer" class="timer-display">60:00</span></span>
+                <span class="header-meta-pill">Timer: <span id="timer" class="timer-display">45:00</span></span>
                 <span>50 questions · Single attempt</span>
             </div>
         </div>
@@ -312,7 +312,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <div class="timer-shell">
                         <div>
                             <div class="timer-label">Time remaining</div>
-                            <div id="timerSidebar" class="timer-value">60:00</div>
+                            <div id="timerSidebar" class="timer-value">45:00</div>
                         </div>
                         <div class="badge badge-danger">Auto submit on timeout</div>
                     </div>
@@ -528,7 +528,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
 
         // Timer logic
-        let timeLeft = 3600;
+        let timeLeft = 2700;
         const timer = setInterval(() => {
             let min = Math.floor(timeLeft / 60);
             let sec = timeLeft % 60;
