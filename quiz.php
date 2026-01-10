@@ -37,8 +37,157 @@ function fetchQuestionsFromStatement(mysqli_stmt $stmt): array
     return $questions;
 }
 
+// ============================================
+// HANDLE BOTH POST (NEW QUIZ) AND GET (RESUME)
+// ============================================
+
+// Handle GET request (resume quiz on page reload)
+if ($_SERVER['REQUEST_METHOD'] == 'GET') {
+    // Check if session has quiz attempt
+    if (!isset($_SESSION['quiz_attempt_id']) || !isset($_SESSION['quiz_user_id'])) {
+        header("Location: index.php");
+        exit;
+    }
+    
+    $attempt_id = $_SESSION['quiz_attempt_id'];
+    $user_id = $_SESSION['quiz_user_id'];
+    $role = $_SESSION['quiz_role'] ?? '';
+    $level = $_SESSION['quiz_level'] ?? '';
+    
+    if (empty($role) || empty($level)) {
+        header("Location: index.php");
+        exit;
+    }
+    
+    // Get attempt details with expires_at (SERVER-CONTROLLED TIMER)
+    $attemptStmt = $conn->prepare("
+        SELECT attempt_id, user_id, role, level, question_ids, current_question_index, 
+               remaining_time_seconds, start_time, expires_at, duration_minutes, status
+        FROM quiz_attempts 
+        WHERE attempt_id = ? AND user_id = ? AND status = 'in_progress'
+    ");
+    $attemptStmt->bind_param("ii", $attempt_id, $user_id);
+    $attemptStmt->execute();
+    $attemptResult = $attemptStmt->get_result();
+    
+    if ($attemptResult->num_rows === 0) {
+        unset($_SESSION['quiz_attempt_id']);
+        header("Location: index.php");
+        exit;
+    }
+    
+    $attempt = $attemptResult->fetch_assoc();
+    $attemptStmt->close();
+    
+    if ($attempt['role'] !== $role || $attempt['level'] !== $level) {
+        header("Location: index.php");
+        exit;
+    }
+    
+    $question_ids = json_decode($attempt['question_ids'], true);
+    if (!is_array($question_ids) || empty($question_ids)) {
+        header("Location: index.php");
+        exit;
+    }
+    
+    // Map role to table
+    $roleToTable = [
+        'Backend Developer' => 'backend_mcq_questions',
+        'Python Developer'  => 'python_mcq_questions',
+        'Flutter Developer' => 'flutter_mcq_questions',
+        'Mern Developer'    => 'mern_mcq_questions',
+        'Full Stack Developer' => 'fullstack_mcq_questions',
+    ];
+    $questionsTable = $roleToTable[$role] ?? null;
+    if ($questionsTable === null) {
+        die("Unsupported role.");
+    }
+    
+    // Fetch questions by IDs
+    $placeholders = implode(',', array_fill(0, count($question_ids), '?'));
+    $fetchStmt = $conn->prepare("
+        SELECT id, question, option_a, option_b, option_c, option_d 
+        FROM {$questionsTable} 
+        WHERE id IN ({$placeholders})
+    ");
+    $fetchStmt->bind_param(str_repeat('i', count($question_ids)), ...$question_ids);
+    $fetchStmt->execute();
+    $question_data = fetchQuestionsFromStatement($fetchStmt);
+    $fetchStmt->close();
+    
+    // Reorder to match saved order
+    $ordered_questions = [];
+    foreach ($question_ids as $qid) {
+        foreach ($question_data as $q) {
+            if ($q['id'] == $qid) {
+                $ordered_questions[] = $q;
+                break;
+            }
+        }
+    }
+    $question_data = $ordered_questions;
+    
+    if (count($question_data) === 0) {
+        die("Questions not found.");
+    }
+    
+    // Get saved answers
+    $answersStmt = $conn->prepare("SELECT question_id, selected_option FROM quiz_answers WHERE attempt_id = ?");
+    $answersStmt->bind_param("i", $attempt_id);
+    $answersStmt->execute();
+    $answersResult = $answersStmt->get_result();
+    $saved_answers = [];
+    while ($row = $answersResult->fetch_assoc()) {
+        $saved_answers[$row['question_id']] = $row['selected_option'];
+    }
+    $answersStmt->close();
+    
+    // CRITICAL: Calculate remaining time from expires_at (SERVER-CONTROLLED)
+    // This ensures timer NEVER resets on back/refresh/browser close
+    if (!empty($attempt['expires_at']) && $attempt['expires_at'] != '0000-00-00 00:00:00') {
+        $expires_datetime = new DateTime($attempt['expires_at'], new DateTimeZone('Asia/Kolkata'));
+        $now_datetime = new DateTime('now', new DateTimeZone('Asia/Kolkata'));
+        $remaining_time_seconds = max(0, $expires_datetime->getTimestamp() - $now_datetime->getTimestamp());
+    } else {
+        // Fallback: Calculate from start_time (for old records without expires_at)
+        $start_datetime = new DateTime($attempt['start_time'], new DateTimeZone('Asia/Kolkata'));
+        $now_datetime = new DateTime('now', new DateTimeZone('Asia/Kolkata'));
+        $elapsed = $now_datetime->getTimestamp() - $start_datetime->getTimestamp();
+        $duration_minutes = $attempt['duration_minutes'] ?? 45;
+        $remaining_time_seconds = max(0, ($duration_minutes * 60) - $elapsed);
+        
+        // Update expires_at for this record (migration)
+        $expires_at = date('Y-m-d H:i:s', strtotime($attempt['start_time'] . " +{$duration_minutes} minutes"));
+        $updateExpiresStmt = $conn->prepare("UPDATE quiz_attempts SET expires_at = ? WHERE attempt_id = ?");
+        $updateExpiresStmt->bind_param("si", $expires_at, $attempt_id);
+        $updateExpiresStmt->execute();
+        $updateExpiresStmt->close();
+    }
+    
+    // Ensure timer doesn't exceed maximum (safety check)
+    if ($remaining_time_seconds > 2700) {
+        $remaining_time_seconds = 2700;
+    }
+    $is_resuming = true;
+    $current_question_index = (int)$attempt['current_question_index'];
+    
+    // Get user details
+    $userStmt = $conn->prepare("SELECT name, mobile FROM users WHERE id = ?");
+    $userStmt->bind_param("i", $user_id);
+    $userStmt->execute();
+    $userResult = $userStmt->get_result();
+    $userData = $userResult->fetch_assoc();
+    $userName = $userData['name'] ?? $_SESSION['quiz_name'] ?? '';
+    $userMobile = $userData['mobile'] ?? $_SESSION['quiz_mobile'] ?? '';
+    $userStmt->close();
+    
+    // Now continue to HTML rendering (same as POST)
+    // Skip the POST block and go directly to HTML
+    goto render_quiz;
+}
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    // Read role and level from form (required)
+    // NEW QUIZ START - Read role and level from form (required)
     $role  = trim($_POST['role'] ?? '');
     $level = trim($_POST['level'] ?? '');
 
@@ -83,10 +232,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         die("Invalid phone number. Phone number must be exactly 10 digits starting with 6, 7, 8, or 9.");
     }
     
-    $email = $_POST['email'] ?? '';
+    $email = trim(strtolower($_POST['email'] ?? ''));
     
-    // Check if user with same email or mobile already exists and has submitted quiz
-    $checkStmt = $conn->prepare("SELECT id FROM users WHERE email = ? OR mobile = ?");
+    // CRITICAL: Check if user with same email or mobile already exists (case-insensitive, trimmed)
+    // This ensures browser close/re-login finds the same user
+    // Use LOWER(TRIM()) on both sides to handle any case/whitespace differences in database
+    $checkStmt = $conn->prepare("SELECT id FROM users WHERE LOWER(TRIM(email)) = ? OR mobile = ?");
     $checkStmt->bind_param("ss", $email, $mobile);
     $checkStmt->execute();
     $checkStmt->store_result();
@@ -122,7 +273,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $stmt->execute();
         $user_id = $stmt->insert_id;
     }
-    // Persist user session
+    // CRITICAL: Persist user session with proper isolation
+    // Regenerate session ID to prevent session fixation attacks
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_regenerate_id(true);
+    }
+    
     $_SESSION['quiz_user_id'] = $user_id;
     $_SESSION['quiz_role'] = $role;
     $_SESSION['quiz_level'] = $level;
@@ -180,6 +336,178 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (count($question_data) === 0) {
         die("No questions found for {$role} ({$level}). Please contact the administrator.");
     }
+    
+    // ============================================
+    // SESSION-BASED QUIZ ATTEMPT MANAGEMENT
+    // ============================================
+    // CRITICAL: Check for existing active attempt (SINGLE ACTIVE SESSION LOGIC)
+    // NEVER create new if active session exists (prevents data overwrite)
+    // Also check for recently expired attempts (within last 5 minutes) that weren't submitted
+    // This handles browser close scenario where timer might have expired
+    $existingAttemptStmt = $conn->prepare("
+        SELECT attempt_id, question_ids, current_question_index, remaining_time_seconds, 
+               start_time, expires_at, duration_minutes, status
+        FROM quiz_attempts 
+        WHERE user_id = ? 
+          AND LOWER(TRIM(role)) = LOWER(TRIM(?)) 
+          AND LOWER(TRIM(level)) = LOWER(TRIM(?))
+          AND (
+              status = 'in_progress' 
+              OR (status = 'expired' AND expires_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE))
+          )
+        ORDER BY start_time DESC
+        LIMIT 1
+    ");
+    $existingAttemptStmt->bind_param("iss", $user_id, $role, $level);
+    $existingAttemptStmt->execute();
+    $existingAttemptResult = $existingAttemptStmt->get_result();
+    
+    $attempt_id = null;
+    $is_resuming = false;
+    $saved_answers = [];
+    $current_question_index = 0;
+    $remaining_time_seconds = 2700; // Default 45 minutes
+    
+    if ($existingAttemptResult->num_rows > 0) {
+        // Resume existing attempt
+        $existingAttempt = $existingAttemptResult->fetch_assoc();
+        $attempt_id = $existingAttempt['attempt_id'];
+        $is_resuming = true;
+        $current_question_index = (int)$existingAttempt['current_question_index'];
+        
+        // If attempt was expired but recently, reactivate it
+        if ($existingAttempt['status'] === 'expired') {
+            // Reactivate the attempt
+            $reactivateStmt = $conn->prepare("
+                UPDATE quiz_attempts 
+                SET status = 'in_progress' 
+                WHERE attempt_id = ?
+            ");
+            $reactivateStmt->bind_param("i", $attempt_id);
+            $reactivateStmt->execute();
+            $reactivateStmt->close();
+        }
+        
+        // CRITICAL: Calculate remaining time from expires_at (SERVER-CONTROLLED)
+        // This ensures timer NEVER resets on back/refresh/browser close
+        if (!empty($existingAttempt['expires_at']) && $existingAttempt['expires_at'] != '0000-00-00 00:00:00') {
+            $expires_datetime = new DateTime($existingAttempt['expires_at'], new DateTimeZone('Asia/Kolkata'));
+            $now_datetime = new DateTime('now', new DateTimeZone('Asia/Kolkata'));
+            $remaining_time_seconds = max(0, $expires_datetime->getTimestamp() - $now_datetime->getTimestamp());
+        } else {
+            // Fallback: Calculate from start_time (for old records without expires_at)
+            $start_datetime = new DateTime($existingAttempt['start_time'], new DateTimeZone('Asia/Kolkata'));
+            $now_datetime = new DateTime('now', new DateTimeZone('Asia/Kolkata'));
+            $elapsed = $now_datetime->getTimestamp() - $start_datetime->getTimestamp();
+            $duration_minutes = $existingAttempt['duration_minutes'] ?? 45;
+            $remaining_time_seconds = max(0, ($duration_minutes * 60) - $elapsed);
+            
+            // Update expires_at for this record (migration)
+            $expires_at = date('Y-m-d H:i:s', strtotime($existingAttempt['start_time'] . " +{$duration_minutes} minutes"));
+            $updateExpiresStmt = $conn->prepare("UPDATE quiz_attempts SET expires_at = ? WHERE attempt_id = ?");
+            $updateExpiresStmt->bind_param("si", $expires_at, $attempt_id);
+            $updateExpiresStmt->execute();
+            $updateExpiresStmt->close();
+        }
+        
+        // Ensure timer doesn't exceed maximum (safety check)
+        if ($remaining_time_seconds > 2700) {
+            $remaining_time_seconds = 2700;
+        }
+        
+        // Get saved answers
+        $answersStmt = $conn->prepare("
+            SELECT question_id, selected_option
+            FROM quiz_answers
+            WHERE attempt_id = ?
+        ");
+        $answersStmt->bind_param("i", $attempt_id);
+        $answersStmt->execute();
+        $answersResult = $answersStmt->get_result();
+        while ($row = $answersResult->fetch_assoc()) {
+            $saved_answers[$row['question_id']] = $row['selected_option'];
+        }
+        $answersStmt->close();
+        
+        // CRITICAL: Use saved question_ids to fetch questions in EXACT same order
+        // This ensures answers always match the correct questions (prevents wrong answers showing)
+        $saved_question_ids = json_decode($existingAttempt['question_ids'], true);
+        
+        if (is_array($saved_question_ids) && !empty($saved_question_ids)) {
+            // CRITICAL: Fetch questions by saved IDs in exact order (not RAND())
+            // This prevents answers from showing on wrong questions
+            $placeholders = implode(',', array_fill(0, count($saved_question_ids), '?'));
+            $fetchByIdsSql = "SELECT id, question, option_a, option_b, option_c, option_d FROM {$questionsTable} WHERE id IN ($placeholders)";
+            $fetchStmt = $conn->prepare($fetchByIdsSql);
+            $fetchStmt->bind_param(str_repeat('i', count($saved_question_ids)), ...$saved_question_ids);
+            $fetchStmt->execute();
+            $fetched_questions = fetchQuestionsFromStatement($fetchStmt);
+            $fetchStmt->close();
+            
+            // Reorder fetched questions to match saved question_ids order EXACTLY
+            $question_map = [];
+            foreach ($fetched_questions as $q) {
+                $question_map[$q['id']] = $q;
+            }
+            $question_data = [];
+            foreach ($saved_question_ids as $qid) {
+                if (isset($question_map[$qid])) {
+                    $question_data[] = $question_map[$qid];
+                }
+            }
+            
+            // Filter saved answers to only include questions that exist
+            $filtered_answers = [];
+            foreach ($saved_answers as $qid => $option) {
+                if (isset($question_map[$qid])) {
+                    $filtered_answers[$qid] = $option;
+                }
+            }
+            $saved_answers = $filtered_answers;
+        }
+        // If saved_question_ids is invalid, keep using question_data from RAND() fetch above
+    }
+    
+    $existingAttemptStmt->close();
+    
+    // Debug logging (can be removed in production)
+    if ($is_resuming) {
+        error_log("RESUME QUIZ: User ID=$user_id, Role=$role, Level=$level, Attempt ID=$attempt_id, Remaining Time=$remaining_time_seconds seconds");
+    } else {
+        error_log("NEW QUIZ: User ID=$user_id, Role=$role, Level=$level, No existing attempt found");
+    }
+    
+    // CRITICAL: Create new attempt ONLY if no active session exists
+    // NEVER create new if active session found (prevents data overwrite)
+    if (!$is_resuming) {
+        $question_ids_json = json_encode(array_column($question_data, 'id'));
+        $duration_minutes = 45; // Fixed quiz duration
+        
+        // CRITICAL: Use database NOW() for both start_time and expires_at to avoid timezone issues
+        // expires_at will be calculated in database using DATE_ADD
+        $createAttemptStmt = $conn->prepare("
+            INSERT INTO quiz_attempts (user_id, role, level, question_ids, remaining_time_seconds, duration_minutes, expires_at, start_time)
+            VALUES (?, ?, ?, ?, 2700, ?, DATE_ADD(NOW(), INTERVAL ? MINUTE), NOW())
+        ");
+        // Type string: i=user_id, s=role, s=level, s=question_ids_json, i=duration_minutes, i=duration_minutes_for_dateadd (6 parameters)
+        $createAttemptStmt->bind_param("isssii", $user_id, $role, $level, $question_ids_json, $duration_minutes, $duration_minutes);
+        $createAttemptStmt->execute();
+        $attempt_id = $createAttemptStmt->insert_id;
+        $createAttemptStmt->close();
+        
+        // Initialize variables for new attempt
+        $saved_answers = [];
+        $current_question_index = 0;
+        $remaining_time_seconds = 2700;
+    }
+    
+    // CRITICAL: Store attempt_id in session (ensures data isolation per candidate)
+    // Each candidate gets their own unique attempt_id, preventing data leakage
+    // All API endpoints verify user_id matches attempt_id to prevent cross-candidate access
+    $_SESSION['quiz_attempt_id'] = $attempt_id;
+    
+    render_quiz:
+    // Variables are already set above (either from GET resume or POST new/continue)
     ?>
 
 <!DOCTYPE html>
@@ -191,9 +519,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <link rel="stylesheet" href="assets/app.css">
 </head>
 <body class="app-shell app-shell-quiz">
-    <div class="warning-banner">
-        <strong>Do not go back or reload.</strong> Your assessment progress will be lost.
-    </div>
+    <!-- <div class="warning-banner" style="background-color: #28a745; color: white;">
+        <strong>✓ Auto-save enabled.</strong> Your progress is saved automatically. You can safely refresh or return later.
+    </div> -->
 
     <header class="app-header">
         <div class="app-header-inner">
@@ -228,8 +556,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </div>
             <div class="modal-body">
                 <p class="modal-message">
-                    <strong>Do not go back or reload the page!</strong><br><br>
-                    If you navigate away or reload this page, all your progress and answers will be permanently lost. You will need to start the assessment from the beginning.
+                    <strong>Your progress is automatically saved!</strong><br><br>
+                    You can safely reload the page or return later. Your answers and timer will be restored automatically. However, navigating away may interrupt your assessment flow.
                 </p>
                 <div class="modal-actions">
                     <button type="button" class="modal-btn modal-btn-secondary" onclick="closeWarningModal()">
@@ -249,7 +577,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <h1 class="card-title">Technical multiple-choice questions</h1>
                         <div class="quiz-header-meta">
                             <span>You can skip questions if needed.</span>
-                            <span class="chip">Pagination: 1 question per page</span>
                         </div>
                     </div>
 
@@ -257,6 +584,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
                     <form action="submit_quiz.php" method="POST" id="quizForm">
                         <input type="hidden" name="user_id" value="<?php echo $user_id; ?>">
+                        <input type="hidden" name="attempt_id" value="<?php echo $attempt_id; ?>">
                         <input type="hidden" name="role" value="<?php echo htmlspecialchars($role); ?>">
                         <input type="hidden" name="level" value="<?php echo htmlspecialchars($level); ?>">
                         <input type="hidden" name="all_question_ids" value="<?php echo htmlspecialchars(json_encode(array_column($question_data, 'id'))); ?>">
@@ -273,16 +601,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     echo "</div>";
                                 }
                                 $block = $currentBlock;
-                                $activeClass = ($block == 0) ? ' active' : '';
+                                // Set active class for the saved block if resuming, otherwise block 0
+                                $activeClass = ($block == $current_question_index && $is_resuming) ? ' active' : (($block == 0 && !$is_resuming) ? ' active' : '');
                                 echo "<div class='quiz-question-block question-block{$activeClass}' id='block-$block'>";
                             }
 
                             echo "<article class='quiz-question-item'>";
                             echo "<h2 class='quiz-question-title'>Q" . ($index + 1) . ". {$q['question']}</h2>";
-                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='A'> <span>A) {$q['option_a']}</span></label>";
-                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='B'> <span>B) {$q['option_b']}</span></label>";
-                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='C'> <span>C) {$q['option_c']}</span></label>";
-                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='D'> <span>D) {$q['option_d']}</span></label>";
+                            // Restore saved answer if exists
+                            $saved_option = $saved_answers[$q['id']] ?? null;
+                            $checked_a = ($saved_option === 'A') ? ' checked' : '';
+                            $checked_b = ($saved_option === 'B') ? ' checked' : '';
+                            $checked_c = ($saved_option === 'C') ? ' checked' : '';
+                            $checked_d = ($saved_option === 'D') ? ' checked' : '';
+                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='A' data-question-id='{$q['id']}'{$checked_a}> <span>A) {$q['option_a']}</span></label>";
+                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='B' data-question-id='{$q['id']}'{$checked_b}> <span>B) {$q['option_b']}</span></label>";
+                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='C' data-question-id='{$q['id']}'{$checked_c}> <span>C) {$q['option_c']}</span></label>";
+                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='D' data-question-id='{$q['id']}'{$checked_d}> <span>D) {$q['option_d']}</span></label>";
                             echo "</article>";
                         }
                         // Close the last block
@@ -295,7 +630,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 ← Previous
                             </button>
                             <div class="quiz-nav-right">
-                                <span class="pill-counter" id="pageIndicator">Page 1 of <?php echo ceil(count($question_data) / 1); ?></span>
                                 <button type="button" class="btn btn-outline btn-sm" id="nextBtn" onclick="changePage(1)">
                                     Next →
                                 </button>
@@ -358,8 +692,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
             }
 
-            // Initial theme from localStorage or prefers-color-scheme
-            const stored = window.localStorage.getItem('quiz-theme');
+            // Initial theme from sessionStorage (resets for each new candidate session)
+            // Always start with light mode for new candidates
+            const stored = window.sessionStorage.getItem('quiz-theme');
             const initialTheme = stored || 'light';
             applyTheme(initialTheme);
 
@@ -368,7 +703,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     const isDark = body.classList.contains('dark-mode');
                     const nextTheme = isDark ? 'light' : 'dark';
                     applyTheme(nextTheme);
-                    window.localStorage.setItem('quiz-theme', nextTheme);
+                    window.sessionStorage.setItem('quiz-theme', nextTheme);
                 });
             }
         })();
@@ -427,15 +762,41 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             return true;
         });
 
-        // Guard: prevent refresh/reload/back while on quiz page
+        // Guard: Allow reload (progress is auto-saved), but warn on navigation away
         let guardEnabled = true;
+        
+        // onbeforeunload: Show warning, DON'T stop timer (user might cancel)
         window.onbeforeunload = function(e) {
             if (!guardEnabled) return;
-            const message = 'Do not reload or go back. Your progress may be lost.';
+            
+            // Show warning message
+            const message = 'Are you sure you want to leave? Your progress is saved, but you may lose your current position.';
             e = e || window.event;
             if (e) e.returnValue = message;
+            
+            // DON'T stop timer here - user might click Cancel
             return message;
         };
+        
+        // unload: Fires ONLY when page is actually unloading (after user confirms Leave)
+        // This does NOT fire when user clicks Cancel
+        window.addEventListener('unload', function(e) {
+            // Page is actually leaving - stop timer
+            window.stopQuizTimer();
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            timeLeft = -1;
+        });
+        
+        // visibilitychange: Handle tab switch (don't stop timer)
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                // Page is hidden (tab switch, minimize) - don't stop timer
+                // Timer will sync when page becomes visible again
+            }
+        });
         // Disable F5 / Ctrl+R
         window.addEventListener('keydown', function(e) {
             if (e.key === 'F5' || (e.ctrlKey && e.key.toLowerCase() === 'r')) {
@@ -443,16 +804,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 showWarningModal();
             }
         });
-        // Mark quiz as started; if page is reloaded, send user back to index
+        // Note: Page reload is now supported - quiz state is restored from server
+        // sessionStorage is kept for backward compatibility but no longer blocks reload
         if (!sessionStorage.getItem('quizStarted')) {
             sessionStorage.setItem('quizStarted', '1');
-        } else {
-            // Show alert and redirect
-            alert('⚠️ You reloaded the quiz page. Redirecting to start to avoid duplicate attempt.');
-            window.location.href = 'index.php';
         }
 
-        let currentBlock = 0;
+        // Session-based quiz state
+        const attemptId = <?php echo $attempt_id; ?>;
+        const isResuming = <?php echo $is_resuming ? 'true' : 'false'; ?>;
+        const savedAnswers = <?php echo json_encode($saved_answers); ?>;
+        let currentBlock = <?php echo $current_question_index; ?>;
         const totalBlocks = <?php echo ceil(count($question_data) / 1); ?>;
         const questionIds = <?php echo json_encode(array_column($question_data, 'id')); ?>;
 
@@ -482,18 +844,46 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 form.scrollTop = 0;
             }
             
-            const firstBlock = document.getElementById('block-0');
-            if (firstBlock) {
-                firstBlock.classList.add('active');
-                firstBlock.classList.add('question-block');
-            }
-            // Remove active from other blocks
-            for (let i = 1; i < totalBlocks; i++) {
+            // Check if a block is already active (set by PHP)
+            let foundActiveBlock = -1;
+            for (let i = 0; i < totalBlocks; i++) {
                 const block = document.getElementById(`block-${i}`);
-                if (block) {
-                    block.classList.remove('active');
+                if (block && block.classList.contains('active')) {
+                    foundActiveBlock = i;
+                    break;
                 }
             }
+            
+            // If no block is active, restore to saved position or start at block 0
+            if (foundActiveBlock === -1) {
+                const targetBlock = isResuming ? currentBlock : 0;
+                
+                // Remove active from all blocks first
+                for (let i = 0; i < totalBlocks; i++) {
+                    const block = document.getElementById(`block-${i}`);
+                    if (block) {
+                        block.classList.remove('active');
+                    }
+                }
+                
+                // Activate the target block
+                const targetBlockEl = document.getElementById(`block-${targetBlock}`);
+                if (targetBlockEl) {
+                    targetBlockEl.classList.add('active');
+                    currentBlock = targetBlock;
+                } else {
+                    // Fallback to block 0 if target block not found
+                    const firstBlock = document.getElementById('block-0');
+                    if (firstBlock) {
+                        firstBlock.classList.add('active');
+                        currentBlock = 0;
+                    }
+                }
+            } else {
+                // Use the already active block
+                currentBlock = foundActiveBlock;
+            }
+            
             updateNav();
             updateAnsweredProgress();
             
@@ -514,10 +904,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             document.getElementById("prevBtn").disabled = currentBlock === 0;
             document.getElementById("nextBtn").style.display = currentBlock === totalBlocks - 1 ? "none" : "inline-flex";
             document.getElementById("submitBtn").style.display = currentBlock === totalBlocks - 1 ? "inline-flex" : "none";
-            const pageIndicator = document.getElementById("pageIndicator");
-            if (pageIndicator) {
-                pageIndicator.textContent = `Page ${currentBlock + 1} of ${totalBlocks}`;
-            }
         }
         function changePage(step) {
             document.getElementById(`block-${currentBlock}`).classList.remove("active");
@@ -525,11 +911,63 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             document.getElementById(`block-${currentBlock}`).classList.add("active");
             updateNav();
             updateAnsweredProgress();
+            
+            // Update question position on server
+            updateQuestionPosition(currentBlock);
+        }
+        
+        // Update current question position on server
+        async function updateQuestionPosition(index) {
+            try {
+                await fetch('update_question_position.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        attempt_id: attemptId,
+                        question_index: index
+                    })
+                });
+            } catch (error) {
+                console.error('Position update error:', error);
+            }
         }
 
-        // Timer logic
-        let timeLeft = 2700;
-        const timer = setInterval(() => {
+        // Timer logic - Server-controlled
+        let timeLeft = <?php echo (int)$remaining_time_seconds; ?>;
+        
+        // Debug: Log initial timer value
+        console.log('Initial timer from server:', timeLeft, 'seconds =', Math.floor(timeLeft / 60) + ':' + (timeLeft % 60 < 10 ? '0' : '') + (timeLeft % 60));
+        console.log('Is resuming:', <?php echo $is_resuming ? 'true' : 'false'; ?>);
+        
+        // Safety check: Ensure timer is within valid range (0 to 2700 seconds = 45 minutes)
+        if (timeLeft > 2700) {
+            console.warn('Timer value too high (' + timeLeft + '), resetting to 45 minutes');
+            timeLeft = 2700;
+        }
+        if (timeLeft < 0) {
+            console.warn('Timer value negative (' + timeLeft + '), resetting to 0');
+            timeLeft = 0;
+        }
+        
+        let timerInterval = null;
+        
+        // Global function to stop timer forcefully (accessible from anywhere)
+        window.stopQuizTimer = function() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            // Also try to clear any other intervals that might be running
+            for (let i = 1; i < 9999; i++) {
+                clearInterval(i);
+            }
+        };
+        
+        function updateTimerDisplay() {
+            // Ensure timeLeft is valid
+            if (timeLeft < 0) timeLeft = 0;
+            if (timeLeft > 2700) timeLeft = 2700;
+            
             let min = Math.floor(timeLeft / 60);
             let sec = timeLeft % 60;
             const formatted = `${min}:${sec < 10 ? '0' : ''}${sec}`;
@@ -537,13 +975,150 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             const timerSidebar = document.getElementById('timerSidebar');
             if (timerTop) timerTop.textContent = formatted;
             if (timerSidebar) timerSidebar.textContent = formatted;
-            if (timeLeft <= 0) {
-                clearInterval(timer);
-                alert('Time is up! Submitting quiz...');
-                document.getElementById("quizForm").submit();
+        }
+        
+        function startTimer() {
+            // Don't start if timer is already stopped or invalid
+            if (timeLeft < 0) {
+                return;
             }
-            timeLeft--;
-        }, 1000);
+            
+            // Clear any existing interval first
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            
+            updateTimerDisplay();
+            timerInterval = setInterval(() => {
+                // Check if timer was stopped (timeLeft < 0 means stopped)
+                if (timeLeft < 0 || !timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                    return;
+                }
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                    alert('Time is up! Submitting quiz...');
+                    document.getElementById("quizForm").submit();
+                } else {
+                    timeLeft--;
+                    updateTimerDisplay();
+                }
+            }, 1000);
+        }
+        
+        // CRITICAL: Sync timer with server FIRST before starting
+        // This ensures timer is always accurate when page loads (especially after back button)
+        // Timer will NOT start until sync completes - this prevents timer from running with wrong value
+        (async () => {
+            // Ensure timer is stopped initially (in case of page reload/back button)
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            
+            try {
+                const response = await fetch('sync_timer.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        attempt_id: attemptId,
+                        client_remaining_seconds: timeLeft
+                    })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    if (data.expired) {
+                        // Only submit if actually expired (not on new quiz start)
+                        // For new quiz, if expired is true, it's a calculation error
+                        if (isResuming && timeLeft > 0) {
+                            alert('Time has expired! Submitting quiz...');
+                            document.getElementById("quizForm").submit();
+                            return;
+                        } else {
+                            // New quiz or calculation error - use default timer
+                            console.warn('Timer sync returned expired for new quiz, using default 2700 seconds');
+                            timeLeft = 2700;
+                            updateTimerDisplay();
+                        }
+                    } else {
+                        // Server time is authoritative - ALWAYS use server value
+                        // This accounts for time elapsed while away (back button, reload, etc.)
+                        const oldTime = timeLeft;
+                        const newTime = data.remaining_seconds;
+                        
+                        // Safety check: If new quiz and server returns 0 or negative, use default
+                        if (!isResuming && (newTime <= 0 || newTime > 2700)) {
+                            console.warn('Timer sync returned invalid value for new quiz:', newTime, ', using default 2700 seconds');
+                            timeLeft = 2700;
+                        } else {
+                            // Always update timer with server value (no threshold check)
+                            // This ensures timer resumes from correct time, not from where it was left
+                            timeLeft = newTime;
+                        }
+                        
+                        // Update display immediately with correct time
+                        updateTimerDisplay();
+                        
+                        if (oldTime !== newTime && newTime > 0) {
+                            console.log('Timer synced on page load:', oldTime, '->', newTime, 'seconds (elapsed while away:', (oldTime - newTime), 'seconds)');
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Initial timer sync error:', error);
+                // Continue with PHP value if sync fails
+            }
+            
+            // Start timer ONLY AFTER sync completes (with accurate server time)
+            // This ensures timer never runs with wrong value
+            startTimer();
+        })();
+        
+        // Sync timer with server every 30 seconds
+        setInterval(async () => {
+            if (timeLeft <= 0) return;
+            
+            try {
+                const response = await fetch('sync_timer.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        attempt_id: attemptId,
+                        client_remaining_seconds: timeLeft
+                    })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    if (data.expired) {
+                        clearInterval(timerInterval);
+                        alert('Time has expired! Submitting quiz...');
+                        document.getElementById("quizForm").submit();
+                    } else if (data.needs_correction || Math.abs(timeLeft - data.remaining_seconds) > 5) {
+                        // Server time is authoritative - update client timer
+                        // Stop current timer interval
+                        if (timerInterval) {
+                            clearInterval(timerInterval);
+                        }
+                        
+                        // Update timer value
+                        timeLeft = data.remaining_seconds;
+                        
+                        // Restart timer with new value
+                        startTimer();
+                        
+                        console.log('Timer corrected during periodic sync:', timeLeft, 'seconds');
+                    }
+                }
+            } catch (error) {
+                console.error('Timer sync error:', error);
+                // Continue with client timer on error
+            }
+        }, 30000); // Every 30 seconds
 
         // Progress tracking and jump navigation for questions (UI-only)
         const progressGrid = document.getElementById('progressGrid');
@@ -586,6 +1161,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             currentBlock = targetBlock;
                             targetBlockEl.classList.add('active');
                             updateNav();
+                            updateQuestionPosition(currentBlock);
                         }
                     }
 
@@ -616,33 +1192,143 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             });
         }
 
+        // Auto-save answer when candidate selects an option
+        async function saveAnswer(questionId, selectedOption) {
+            try {
+                const response = await fetch('save_answer.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        attempt_id: attemptId,
+                        question_id: questionId,
+                        selected_option: selectedOption
+                    })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Answer saved successfully
+                    console.log(`Answer saved: Q${questionId} = ${selectedOption}`);
+                } else {
+                    console.error('Failed to save answer:', data.error);
+                }
+            } catch (error) {
+                console.error('Save answer error:', error);
+                // Continue even if save fails (network issue, etc.)
+            }
+        }
+        
+        // Add event listeners for auto-save
         document.querySelectorAll('#quizForm input[type="radio"]').forEach((input) => {
-            input.addEventListener('change', updateAnsweredProgress);
+            input.addEventListener('change', function() {
+                updateAnsweredProgress();
+                const questionId = this.getAttribute('data-question-id');
+                const selectedOption = this.value;
+                if (questionId && selectedOption) {
+                    saveAnswer(questionId, selectedOption);
+                }
+            });
         });
         updateAnsweredProgress();
+        
+        // Position restoration is already handled in DOMContentLoaded above
+        // This code is redundant but kept for safety
 
         // Prevent back button navigation and clear quiz data
         history.pushState(null, null, location.href);
         window.onpopstate = function(event) {
             history.pushState(null, null, location.href);
             
-            // Show modal warning
-            showWarningModal();
+            // CRITICAL: Timer is SERVER-CONTROLLED
+            // We DON'T stop client timer - server will calculate correct time when user comes back
+            // Client timer is just for display, server is source of truth
+            
+            // Show modal warning - COMMENTED OUT as per user request
+            // showWarningModal();
+            
+            // IMMEDIATELY redirect
+            // Server will handle timer calculation on resume
+            window.location.href = 'index.php';
+            
+            // The code below won't execute due to immediate redirect above
+            // But keeping it commented for reference
+            /*
+            // Sync timer immediately when back button is pressed (user might be away for a while)
+            // This saves current timer state to server before redirect
+            setTimeout(async () => {
+                try {
+                    const response = await fetch('sync_timer.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams({
+                            attempt_id: attemptId,
+                            client_remaining_seconds: timeLeft
+                        })
+                    });
+                    const data = await response.json();
+                    
+                    if (data.success && !data.expired) {
+                        console.log('Timer synced before redirect:', data.remaining_seconds, 'seconds');
+                    }
+                } catch (error) {
+                    console.error('Timer sync error after back button:', error);
+                }
+            }, 500);
             
             // Clear all form data (quiz answers) after a delay
             setTimeout(function() {
                 document.getElementById('quizForm').reset();
-                
-                // Clear any stored data
                 localStorage.clear();
                 sessionStorage.clear();
-                
-                // Redirect to index page after showing warning
                 setTimeout(function() {
                     window.location.href = 'index.php';
                 }, 2000);
             }, 500);
+            */
         };
+        
+        // Also sync timer when page becomes visible again (user switched tabs/windows or came back)
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                // Page is visible again, sync timer to account for time elapsed
+                setTimeout(async () => {
+                    try {
+                        const response = await fetch('sync_timer.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: new URLSearchParams({
+                                attempt_id: attemptId,
+                                client_remaining_seconds: timeLeft
+                            })
+                        });
+                        const data = await response.json();
+                        
+                        if (data.success && !data.expired) {
+                            const oldTime = timeLeft;
+                            const newTime = data.remaining_seconds;
+                            
+                            // Only update if there's a significant difference (more than 2 seconds)
+                            if (Math.abs(oldTime - newTime) > 2) {
+                                // Stop current timer interval
+                                if (timerInterval) {
+                                    clearInterval(timerInterval);
+                                }
+                                
+                                // Update timer value
+                                timeLeft = newTime;
+                                
+                                // Restart timer with new value
+                                startTimer();
+                                
+                                console.log('Timer synced after page visible:', oldTime, '->', newTime, 'seconds');
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Timer sync error after visibility change:', error);
+                    }
+                }, 500);
+            }
+        });
 
         // When submitting, allow navigation (remove beforeunload) and block double-submit
         const form = document.getElementById('quizForm');

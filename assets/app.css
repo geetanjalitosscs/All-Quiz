@@ -439,13 +439,18 @@ body.app-shell-registration .app-main-inner {
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 11px;
+  padding: 3px 8px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
+}
+
+.quiz-sidebar-card .badge {
+  font-size: 9px;
+  padding: 2px 6px;
 }
 
 .badge-neutral {
@@ -565,18 +570,19 @@ body.app-shell-registration .card-header {
 }
 
 .card-section-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.13em;
   color: #64748b;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+  margin-top: 6px;
 }
 
 .card-divider {
   border: 0;
   border-top: 1px solid #e2e8f0;
-  margin: 18px 0;
+  margin: 12px 0;
 }
 
 .quiz-main-card .card-divider {
@@ -756,7 +762,7 @@ input:not(:placeholder-shown):valid:not([readonly]) {
   grid-template-columns: minmax(0, 2.1fr) minmax(260px, 1fr);
   gap: 24px;
   align-items: flex-start;
-  padding-top: 24px;
+  padding-top: 8px;
 }
 
 @media (max-width: 1024px) {
@@ -768,8 +774,37 @@ input:not(:placeholder-shown):valid:not([readonly]) {
 .quiz-main-card {
   position: relative;
   overflow: visible;
-  margin-top: 32px !important;
+  margin-top: 0 !important;
   align-self: flex-start;
+  padding: 16px 20px !important;
+}
+
+/* Reduce card header size for quiz page */
+.quiz-main-card .card-header {
+  margin-bottom: 8px !important;
+  padding-bottom: 0;
+}
+
+.quiz-main-card .card-header .badge {
+  margin-bottom: 6px !important;
+  font-size: 11px;
+  padding: 4px 10px;
+}
+
+.quiz-main-card .card-title {
+  font-size: 18px !important;
+  line-height: 1.2;
+  margin-bottom: 2px;
+}
+
+.quiz-main-card .quiz-header-meta {
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+.quiz-main-card .card-divider {
+  margin-top: 8px !important;
+  margin-bottom: 0 !important;
 }
 
 .quiz-main-card form {
@@ -934,6 +969,21 @@ input:not(:placeholder-shown):valid:not([readonly]) {
   max-height: calc(100vh - 40px);
   overflow-y: auto;
   overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px !important;
+}
+
+.quiz-sidebar-card .card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.quiz-sidebar-card .card-header {
+  padding-bottom: 12px !important;
+  margin-bottom: 0 !important;
 }
 
 /* Ensure sidebar scrolls independently */
@@ -945,24 +995,26 @@ input:not(:placeholder-shown):valid:not([readonly]) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  border-radius: 12px;
+  padding: 12px 16px;
+  border-radius: 10px;
   background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
   color: #ffffff;
   box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.2);
+  margin-bottom: 16px;
 }
 
 .timer-label {
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.15em;
   font-weight: 600;
+  margin-bottom: 4px;
 }
 
 .timer-value {
   font-variant-numeric: tabular-nums;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: 0.02em;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
@@ -977,20 +1029,23 @@ input:not(:placeholder-shown):valid:not([readonly]) {
 
 .progress-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
-  gap: 10px;
-  margin-top: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
+  gap: 6px;
+  margin-top: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .progress-dot {
-  height: 36px;
-  width: 36px;
-  border-radius: 8px;
-  border: 2px solid #e5e7eb;
+  height: 32px;
+  width: 32px;
+  border-radius: 6px;
+  border: 1.5px solid #e5e7eb;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: #6b7280;
   background: #ffffff;
@@ -1029,9 +1084,10 @@ input:not(:placeholder-shown):valid:not([readonly]) {
 .quiz-sidebar-meta {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 14px;
-  font-size: 12px;
+  gap: 6px;
+  margin-top: 10px;
+  margin-bottom: 8px;
+  font-size: 11px;
   color: #6b7280;
 }
 

@@ -3,10 +3,19 @@
 // File: submit_quiz.php
 // ===============================
 include 'db.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
-$user_id = $_POST['user_id'];
+$user_id = $_POST['user_id'] ?? null;
+$attempt_id = $_POST['attempt_id'] ?? $_SESSION['quiz_attempt_id'] ?? null;
 $role    = $_POST['role'] ?? '';
 $level   = $_POST['level'] ?? '';
+
+// Validate required parameters
+if (!$user_id) {
+    die('Missing user_id.');
+}
 
 // Map role to respective questions table
 $roleToTable = [
@@ -21,18 +30,94 @@ if ($questionsTable === null) {
     die('Invalid role provided.');
 }
 
-// Check if user has already submitted responses (prevent duplicate submission)
-$checkResponse = $conn->query("SELECT COUNT(*) as count FROM responses WHERE user_id = $user_id");
-$responseCount = $checkResponse->fetch_assoc()['count'];
-
-if ($responseCount > 0) {
-    // User already submitted, redirect to result page
-    header("Location: show_result.php?user_id=$user_id");
-    exit;
+// ============================================
+// SESSION-BASED ATTEMPT MANAGEMENT
+// ============================================
+// If attempt_id is provided, use session-based submission
+if ($attempt_id) {
+    // Verify attempt exists and is in progress
+    $checkAttemptStmt = $conn->prepare("
+        SELECT attempt_id, status, user_id, question_ids
+        FROM quiz_attempts 
+        WHERE attempt_id = ?
+    ");
+    $checkAttemptStmt->bind_param("i", $attempt_id);
+    $checkAttemptStmt->execute();
+    $attemptResult = $checkAttemptStmt->get_result();
+    
+    if ($attemptResult->num_rows === 0) {
+        die('Quiz attempt not found.');
+    }
+    
+    $attempt = $attemptResult->fetch_assoc();
+    $checkAttemptStmt->close();
+    
+    // Verify user_id matches
+    if ($attempt['user_id'] != $user_id) {
+        die('Unauthorized: Attempt does not belong to this user.');
+    }
+    
+    // Check if already submitted
+    if ($attempt['status'] !== 'in_progress') {
+        // Already submitted, redirect to result
+        header("Location: show_result.php?user_id=$user_id");
+        exit;
+    }
+    
+    // Lock attempt: Mark as submitted (atomic operation)
+    $lockStmt = $conn->prepare("
+        UPDATE quiz_attempts 
+        SET status = 'submitted', 
+            end_time = NOW(),
+            remaining_time_seconds = 0
+        WHERE attempt_id = ? AND status = 'in_progress'
+    ");
+    $lockStmt->bind_param("i", $attempt_id);
+    $lockStmt->execute();
+    
+    if ($lockStmt->affected_rows === 0) {
+        // Another process already submitted (race condition)
+        header("Location: show_result.php?user_id=$user_id");
+        exit;
+    }
+    $lockStmt->close();
+    
+    // Get all answers from quiz_answers table (more reliable than POST)
+    $answersStmt = $conn->prepare("
+        SELECT question_id, selected_option
+        FROM quiz_answers
+        WHERE attempt_id = ?
+    ");
+    $answersStmt->bind_param("i", $attempt_id);
+    $answersStmt->execute();
+    $answersResult = $answersStmt->get_result();
+    
+    $answers = [];
+    while ($row = $answersResult->fetch_assoc()) {
+        $answers[$row['question_id']] = $row['selected_option'];
+    }
+    $answersStmt->close();
+    
+    // Get question_ids from attempt
+    $allQuestionIds = json_decode($attempt['question_ids'], true);
+    if (!is_array($allQuestionIds)) {
+        die('Invalid question_ids in attempt.');
+    }
+} else {
+    // Fallback: Use POST data (backward compatibility)
+    // Check if user has already submitted responses (prevent duplicate submission)
+    $checkResponse = $conn->query("SELECT COUNT(*) as count FROM responses WHERE user_id = $user_id");
+    $responseCount = $checkResponse->fetch_assoc()['count'];
+    
+    if ($responseCount > 0) {
+        // User already submitted, redirect to result page
+        header("Location: show_result.php?user_id=$user_id");
+        exit;
+    }
+    
+    $answers = $_POST['answers'] ?? [];
+    $allQuestionIds = json_decode($_POST['all_question_ids'] ?? '[]', true);
 }
-
-$answers = $_POST['answers'] ?? [];
-$allQuestionIds = json_decode($_POST['all_question_ids'] ?? '[]', true);
 
 // Prepare statements for performance and safety
 $stmtCorrect = $conn->prepare("SELECT correct_option FROM {$questionsTable} WHERE id = ?");
