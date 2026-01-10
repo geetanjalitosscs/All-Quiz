@@ -129,9 +129,8 @@
             { id: 'db', x: 1000, y: 400, w: 200, h: 200, text: 'MySQL Database\n\n• users\n• responses\n• backend_mcq_questions\n• python_mcq_questions\n• flutter_mcq_questions\n• mern_mcq_questions\n• fullstack_mcq_questions', color: dbColor, type: 'db' },
             
             // Supporting files
-            { id: 'get_questions', x: 1000, y: 100, w: 180, h: 60, text: 'get_questions.php\n(API)', color: apiColor, type: 'api' },
-            { id: 'get_results', x: 1000, y: 200, w: 180, h: 60, text: 'get_results.php\n(API)', color: apiColor, type: 'api' },
-            { id: 'db_conn', x: 1000, y: 300, w: 180, h: 60, text: 'db.php\nDatabase Connection', color: apiColor, type: 'api' },
+            { id: 'db_conn', x: 1000, y: 250, w: 180, h: 60, text: 'db.php\nDatabase Connection', color: apiColor, type: 'api' },
+            { id: 'config', x: 1000, y: 150, w: 180, h: 60, text: 'config.php\nEnvironment Config', color: apiColor, type: 'api' },
         ];
         
         // Connections (from, to, label, style)
@@ -160,9 +159,8 @@
             ['admin_view', 'db', 'Fetch Users'],
             ['admin_result', 'db', 'Fetch Responses'],
             ['admin_server', 'db', 'Query Data'],
-            ['get_questions', 'db', ''],
-            ['get_results', 'db', ''],
             ['db_conn', 'db', 'Connection'],
+            ['config', 'db_conn', 'Config'],
         ];
         
         // Draw functions
@@ -334,6 +332,7 @@
     </script>
 </body>
 </html>
+
 
 
 
