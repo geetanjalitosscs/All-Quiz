@@ -55,7 +55,7 @@ $users = $conn->query("SELECT * FROM users ORDER BY submitted_at DESC");
                                 <th>Candidate</th>
                                 <th>Role &amp; Level</th>
                                 <th>Score</th>
-                                <th>Submitted at</th>
+                                <th>Time Details</th>
                                 <th>Details</th>
                             </tr>
                         </thead>
@@ -93,7 +93,7 @@ $users = $conn->query("SELECT * FROM users ORDER BY submitted_at DESC");
                         $questionsTable = $roleToTable[$role] ?? null;
 
                         if ($questionsTable) {
-                            // Find the most recent attempt for this user
+                            // Find the most recent attempt for this user (for live score)
                             $attemptStmt = $conn->prepare("
                                 SELECT attempt_id, question_ids
                                 FROM quiz_attempts
@@ -162,14 +162,74 @@ $users = $conn->query("SELECT * FROM users ORDER BY submitted_at DESC");
                         }
                     }
 
-                    $submittedAt = !empty($u['submitted_at']) ? htmlspecialchars($u['submitted_at']) : '-';
+                    // Start time, submit time, and duration (minutes) for display
+                    $startTimeDisplay = '-';
+                    $submitTimeDisplay = '-';
+                    $durationDisplay = '-';
+
+                    // Prefer quiz_attempts for timing (supports in-progress and submitted)
+                    $timeStmt = $conn->prepare("
+                        SELECT start_time, end_time
+                        FROM quiz_attempts
+                        WHERE user_id = ?
+                        ORDER BY start_time DESC
+                        LIMIT 1
+                    ");
+                    $timeStmt->bind_param("i", $user_id);
+                    $timeStmt->execute();
+                    $timeRes = $timeStmt->get_result();
+                    $timeRow = $timeRes ? $timeRes->fetch_assoc() : null;
+                    $timeStmt->close();
+
+                    if ($timeRow && !empty($timeRow['start_time'])) {
+                        try {
+                            $startDt = new DateTime($timeRow['start_time']);
+                            $startTs = $startDt->getTimestamp();
+                            $startTimeDisplay = htmlspecialchars($startDt->format('Y-m-d h:i:s A'));
+
+                            if (!empty($timeRow['end_time'])) {
+                                $endDt = new DateTime($timeRow['end_time']);
+                                $endTs = $endDt->getTimestamp();
+                                $submitTimeDisplay = htmlspecialchars($endDt->format('Y-m-d h:i:s A'));
+
+                                // Duration in whole minutes between start and end
+                                $diffSeconds = max(0, $endTs - $startTs);
+                                $durationMinutes = floor($diffSeconds / 60);
+                                $durationDisplay = $durationMinutes . ' min';
+                            } else {
+                                // In-progress: no end_time yet, show duration till now
+                                $nowTs = time();
+                                $diffSeconds = max(0, $nowTs - $startTs);
+                                $durationMinutes = floor($diffSeconds / 60);
+                                $durationDisplay = $durationMinutes . ' min (running)';
+                                $submitTimeDisplay = 'In progress';
+                            }
+                        } catch (Exception $e) {
+                            // If parsing fails, fall back to raw user submitted_at
+                        }
+                    }
+
+                    // Fallback if no quiz_attempts record found
+                    if ($startTimeDisplay === '-' && !empty($u['submitted_at'])) {
+                        try {
+                            $submittedDateTime = new DateTime($u['submitted_at']);
+                            $startTimeDisplay = htmlspecialchars($submittedDateTime->format('Y-m-d h:i:s A'));
+                        } catch (Exception $e) {
+                            $startTimeDisplay = htmlspecialchars($u['submitted_at']);
+                        }
+                    }
+
                     $mobile = !empty($u['mobile']) ? htmlspecialchars($u['mobile']) : '-';
                     echo "<tr>";
                     echo "<td>{$count}</td>";
                     echo "<td><div>" . htmlspecialchars($u['name']) . "</div><div class='text-muted' style='font-size:12px;'>" . htmlspecialchars($u['email']) . "</div><div class='text-muted' style='font-size:12px;'>" . $mobile . "</div></td>";
                     echo "<td><span class='pill-role'>" . htmlspecialchars($u['role']) . "</span><br><span style='font-size:12px;' class='text-muted'>" . htmlspecialchars($u['level']) . " · " . htmlspecialchars($u['place']) . "</span></td>";
                     echo "<td><span class='chip'>{$correct} / {$total}</span></td>";
-                    echo "<td><span style='font-size:12px;'>" . $submittedAt . "</span></td>";
+                    echo "<td><div style='font-size:12px; line-height:1.4;'>";
+                    echo "<div><strong>Start:</strong> " . $startTimeDisplay . "</div>";
+                    echo "<div><strong>Submit:</strong> " . $submitTimeDisplay . "</div>";
+                    echo "<div><strong>Duration:</strong> " . $durationDisplay . "</div>";
+                    echo "</div></td>";
                     echo "<td><a href='admin_result.php?user_id={$u['id']}' class='muted-link'>View breakdown →</a></td>";
                     echo "</tr>";
                     $count++;
