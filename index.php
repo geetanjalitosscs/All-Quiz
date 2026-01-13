@@ -47,10 +47,12 @@
               <input
                 type="text"
                 name="name"
+                id="name"
                 required
                 pattern="^[A-Za-z ]+$"
                 placeholder="Enter your full name"
                 class="form-control"
+                value="<?php echo htmlspecialchars($_GET['name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
               >
               <p class="form-hint">Use the same name as on official records.</p>
       </div>
@@ -59,11 +61,11 @@
               <label class="form-label">Role</label>
               <select name="role" id="role" required class="form-select">
           <option value="">Select your role</option>
-          <option value="Backend Developer">Backend Developer</option>
-          <option value="Python Developer">Python Developer</option>
-          <option value="Flutter Developer">Flutter Developer</option>
-          <option value="Mern Developer">Mern Developer</option>
-          <option value="Full Stack Developer">Full Stack Developer</option>
+          <option value="Backend Developer" <?php echo (isset($_GET['role']) && $_GET['role'] === 'Backend Developer') ? 'selected' : ''; ?>>Backend Developer</option>
+          <option value="Python Developer" <?php echo (isset($_GET['role']) && $_GET['role'] === 'Python Developer') ? 'selected' : ''; ?>>Python Developer</option>
+          <option value="Flutter Developer" <?php echo (isset($_GET['role']) && $_GET['role'] === 'Flutter Developer') ? 'selected' : ''; ?>>Flutter Developer</option>
+          <option value="Mern Developer" <?php echo (isset($_GET['role']) && $_GET['role'] === 'Mern Developer') ? 'selected' : ''; ?>>Mern Developer</option>
+          <option value="Full Stack Developer" <?php echo (isset($_GET['role']) && $_GET['role'] === 'Full Stack Developer') ? 'selected' : ''; ?>>Full Stack Developer</option>
         </select>
       </div>
 
@@ -71,9 +73,9 @@
               <label class="form-label">Level</label>
               <select name="level" id="level" required class="form-select">
           <option value="">Select your level</option>
-          <option value="Beginner">Beginner</option>
-          <option value="Intermediate">Intermediate</option>
-          <option value="Advanced">Advanced</option>
+          <option value="Beginner" <?php echo (isset($_GET['level']) && $_GET['level'] === 'Beginner') ? 'selected' : ''; ?>>Beginner</option>
+          <option value="Intermediate" <?php echo (isset($_GET['level']) && $_GET['level'] === 'Intermediate') ? 'selected' : ''; ?>>Intermediate</option>
+          <option value="Advanced" <?php echo (isset($_GET['level']) && $_GET['level'] === 'Advanced') ? 'selected' : ''; ?>>Advanced</option>
         </select>
       </div>
 
@@ -100,6 +102,7 @@
                 required
                 placeholder="10-digit number starting with 6, 7, 8, or 9"
                 class="form-control"
+                value="<?php echo htmlspecialchars($_GET['mobile'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
               >
               <p class="form-error" id="mobileError" style="display:none;">
                 Phone number must be exactly 10 digits starting with 6, 7, 8, or 9.
@@ -111,9 +114,11 @@
               <input
                 type="email"
                 name="email"
+                id="email"
                 required
                 placeholder="name@company.com"
                 class="form-control"
+                value="<?php echo htmlspecialchars($_GET['email'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
               >
               <p class="form-error" id="duplicateMsg" style="display:none;">
                 User already attempted this assessment. Use a different phone number and email.
