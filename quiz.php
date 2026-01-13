@@ -338,24 +338,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $checkStmt->close();
 
     if ($existingUserId !== null) {
-        // CRITICAL: Check if user has already submitted responses OR has any quiz attempt
-        // This prevents duplicate attempts from different browsers
+        // CRITICAL: Check if user has already submitted responses OR has submitted/expired quiz attempt
+        // Allow in_progress attempts (user can resume from same browser)
+        // Block only submitted or expired attempts
         $responseCheck = $conn->query("SELECT COUNT(*) as count FROM responses WHERE user_id = $existingUserId");
         $responseCount = $responseCheck->fetch_assoc()['count'];
         
-        // Check if user has ANY quiz attempt (in_progress, submitted, or expired)
-        $attemptCheckStmt = $conn->prepare("SELECT COUNT(*) as count FROM quiz_attempts WHERE user_id = ?");
+        // Check if user has submitted or expired quiz attempt (block these)
+        // in_progress attempts are allowed (user can resume)
+        $attemptCheckStmt = $conn->prepare("SELECT COUNT(*) as count FROM quiz_attempts WHERE user_id = ? AND (status = 'submitted' OR status = 'expired')");
         $attemptCheckStmt->bind_param("i", $existingUserId);
         $attemptCheckStmt->execute();
         $attemptCheckResult = $attemptCheckStmt->get_result();
-        $attemptCount = 0;
+        $completedAttemptCount = 0;
         if ($attemptCheckResult && ($attemptRow = $attemptCheckResult->fetch_assoc())) {
-            $attemptCount = (int)$attemptRow['count'];
+            $completedAttemptCount = (int)$attemptRow['count'];
         }
         $attemptCheckStmt->close();
         
-        // User has attempted if they have submitted responses OR any quiz attempt
-        if ($responseCount > 0 || $attemptCount > 0) {
+        // User has attempted if they have submitted responses OR submitted/expired quiz attempt
+        // in_progress attempts are NOT blocked (user can resume)
+        if ($responseCount > 0 || $completedAttemptCount > 0) {
             // User already attempted quiz -> show popup and send back to start
             echo "<!DOCTYPE html>
 <html>
