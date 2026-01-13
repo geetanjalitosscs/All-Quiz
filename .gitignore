@@ -41,4 +41,6 @@ package-lock.json
 # System files
 .htaccess.local
 
-
+# Configuration files
+db.php
+config.php
