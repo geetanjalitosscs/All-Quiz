@@ -65,22 +65,113 @@ $users = $conn->query("SELECT * FROM users ORDER BY submitted_at DESC");
             if ($users && $users->num_rows > 0) {
                 while ($u = $users->fetch_assoc()) {
                     $user_id = $u['id'];
-
                     $total = 50; // Total questions in the quiz
+                    $correct = 0;
 
-                    $correctResult = $conn->query("SELECT COUNT(*) as correct FROM responses WHERE user_id = $user_id AND is_correct = 1");
-                    $correct = $correctResult ? (int)$correctResult->fetch_assoc()['correct'] : 0;
-                        $submittedAt = !empty($u['submitted_at']) ? htmlspecialchars($u['submitted_at']) : '-';
+                    // First check if user has submitted responses
+                    $responseCountStmt = $conn->prepare("SELECT COUNT(*) AS c FROM responses WHERE user_id = ?");
+                    $responseCountStmt->bind_param("i", $user_id);
+                    $responseCountStmt->execute();
+                    $responseCountRes = $responseCountStmt->get_result();
+                    $responseCount = $responseCountRes ? (int)$responseCountRes->fetch_assoc()['c'] : 0;
+                    $responseCountStmt->close();
 
-                        $mobile = !empty($u['mobile']) ? htmlspecialchars($u['mobile']) : '-';
-                        echo "<tr>";
-                        echo "<td>{$count}</td>";
-                        echo "<td><div>" . htmlspecialchars($u['name']) . "</div><div class='text-muted' style='font-size:12px;'>" . htmlspecialchars($u['email']) . "</div><div class='text-muted' style='font-size:12px;'>" . $mobile . "</div></td>";
-                        echo "<td><span class='pill-role'>" . htmlspecialchars($u['role']) . "</span><br><span style='font-size:12px;' class='text-muted'>" . htmlspecialchars($u['level']) . " · " . htmlspecialchars($u['place']) . "</span></td>";
-                        echo "<td><span class='chip'>{$correct} / {$total}</span></td>";
-                        echo "<td><span style='font-size:12px;'>" . $submittedAt . "</span></td>";
-                        echo "<td><a href='admin_result.php?user_id={$u['id']}' class='muted-link'>View breakdown →</a></td>";
-                        echo "</tr>";
+                    if ($responseCount > 0) {
+                        // User has submitted - get score from responses table
+                        $correctResult = $conn->query("SELECT COUNT(*) as correct FROM responses WHERE user_id = $user_id AND is_correct = 1");
+                        $correct = $correctResult ? (int)$correctResult->fetch_assoc()['correct'] : 0;
+                    } else {
+                        // User hasn't submitted - check for in-progress attempt
+                        $role = $u['role'] ?? '';
+                        $roleToTable = [
+                            'Backend Developer' => 'backend_mcq_questions',
+                            'Python Developer'  => 'python_mcq_questions',
+                            'Flutter Developer' => 'flutter_mcq_questions',
+                            'Mern Developer'    => 'mern_mcq_questions',
+                            'Full Stack Developer' => 'fullstack_mcq_questions',
+                        ];
+                        $questionsTable = $roleToTable[$role] ?? null;
+
+                        if ($questionsTable) {
+                            // Find the most recent attempt for this user
+                            $attemptStmt = $conn->prepare("
+                                SELECT attempt_id, question_ids
+                                FROM quiz_attempts
+                                WHERE user_id = ?
+                                ORDER BY start_time DESC
+                                LIMIT 1
+                            ");
+                            $attemptStmt->bind_param("i", $user_id);
+                            $attemptStmt->execute();
+                            $attemptRes = $attemptStmt->get_result();
+                            $attemptRow = $attemptRes ? $attemptRes->fetch_assoc() : null;
+                            $attemptStmt->close();
+
+                            if ($attemptRow && !empty($attemptRow['question_ids'])) {
+                                $attemptId = (int)$attemptRow['attempt_id'];
+                                $questionIds = json_decode($attemptRow['question_ids'], true);
+
+                                if (is_array($questionIds) && !empty($questionIds)) {
+                                    // Load questions with correct_option
+                                    $placeholders = implode(',', array_fill(0, count($questionIds), '?'));
+                                    $types = str_repeat('i', count($questionIds));
+                                    $qSql = "
+                                        SELECT id, correct_option
+                                        FROM {$questionsTable}
+                                        WHERE id IN ($placeholders)
+                                    ";
+                                    $qStmt = $conn->prepare($qSql);
+                                    $qStmt->bind_param($types, ...$questionIds);
+                                    $qStmt->execute();
+                                    $qRes = $qStmt->get_result();
+
+                                    $questionMap = [];
+                                    while ($qRow = $qRes->fetch_assoc()) {
+                                        $questionMap[$qRow['id']] = $qRow['correct_option'];
+                                    }
+                                    $qStmt->close();
+
+                                    // Load saved answers for this attempt
+                                    $aStmt = $conn->prepare("
+                                        SELECT question_id, selected_option
+                                        FROM quiz_answers
+                                        WHERE attempt_id = ?
+                                    ");
+                                    $aStmt->bind_param("i", $attemptId);
+                                    $aStmt->execute();
+                                    $aRes = $aStmt->get_result();
+                                    $answerMap = [];
+                                    while ($aRow = $aRes->fetch_assoc()) {
+                                        $answerMap[$aRow['question_id']] = $aRow['selected_option'];
+                                    }
+                                    $aStmt->close();
+
+                                    // Calculate live score
+                                    foreach ($questionIds as $qid) {
+                                        if (!isset($questionMap[$qid]) || !isset($answerMap[$qid])) {
+                                            continue;
+                                        }
+                                        $selected = $answerMap[$qid];
+                                        $correctOption = $questionMap[$qid];
+                                        if ($selected !== null && $selected !== '' && $correctOption !== null && $selected === $correctOption) {
+                                            $correct++;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    $submittedAt = !empty($u['submitted_at']) ? htmlspecialchars($u['submitted_at']) : '-';
+                    $mobile = !empty($u['mobile']) ? htmlspecialchars($u['mobile']) : '-';
+                    echo "<tr>";
+                    echo "<td>{$count}</td>";
+                    echo "<td><div>" . htmlspecialchars($u['name']) . "</div><div class='text-muted' style='font-size:12px;'>" . htmlspecialchars($u['email']) . "</div><div class='text-muted' style='font-size:12px;'>" . $mobile . "</div></td>";
+                    echo "<td><span class='pill-role'>" . htmlspecialchars($u['role']) . "</span><br><span style='font-size:12px;' class='text-muted'>" . htmlspecialchars($u['level']) . " · " . htmlspecialchars($u['place']) . "</span></td>";
+                    echo "<td><span class='chip'>{$correct} / {$total}</span></td>";
+                    echo "<td><span style='font-size:12px;'>" . $submittedAt . "</span></td>";
+                    echo "<td><a href='admin_result.php?user_id={$u['id']}' class='muted-link'>View breakdown →</a></td>";
+                    echo "</tr>";
                     $count++;
                 }
             } else {
