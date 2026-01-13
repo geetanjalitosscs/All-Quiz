@@ -33,6 +33,18 @@ $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
 $score = 0;
+
+// Also check raw responses count (without join) to distinguish
+// between legacy submitted users and never-submitted users
+$rawCount = 0;
+$countStmt = $conn->prepare("SELECT COUNT(*) AS c FROM responses WHERE user_id = ?");
+$countStmt->bind_param("i", $user_id);
+$countStmt->execute();
+$countRes = $countStmt->get_result();
+if ($countRes && ($cRow = $countRes->fetch_assoc())) {
+    $rawCount = (int)$cRow['c'];
+}
+$countStmt->close();
 ?>
 <!DOCTYPE html>
 <html>
@@ -64,10 +76,143 @@ $score = 0;
         <?php
         $rows = [];
         while ($row = $result->fetch_assoc()) {
-            if ($row['is_correct']) $score++;
+            if (!empty($row['is_correct'])) {
+                $score++;
+            }
             $rows[] = $row;
         }
         $totalQuestions = count($rows);
+
+        // If there are submitted responses but join returned 0 rows (old data / questions changed),
+        // compute score from responses table only (without question text) so old users are not 0/0.
+        if ($totalQuestions === 0 && $rawCount > 0) {
+            $rows = [];
+            $score = 0;
+
+            $legacyStmt = $conn->prepare("
+                SELECT selected_option, is_correct
+                FROM responses
+                WHERE user_id = ?
+            ");
+            $legacyStmt->bind_param("i", $user_id);
+            $legacyStmt->execute();
+            $legacyRes = $legacyStmt->get_result();
+
+            while ($lRow = $legacyRes->fetch_assoc()) {
+                if (!empty($lRow['is_correct'])) {
+                    $score++;
+                }
+                $rows[] = [
+                    'question'        => 'Question text unavailable (legacy record)',
+                    'option_a'        => null,
+                    'option_b'        => null,
+                    'option_c'        => null,
+                    'option_d'        => null,
+                    'correct_option'  => '',
+                    'selected_option' => $lRow['selected_option'],
+                    'is_correct'      => !empty($lRow['is_correct']) ? 1 : 0,
+                ];
+            }
+            $legacyStmt->close();
+
+            $totalQuestions = count($rows);
+        }
+
+        // If there is no submitted data at all, fall back to live in-progress attempt (quiz_answers)
+        if ($totalQuestions === 0 && $rawCount === 0) {
+            // Find the most recent attempt for this user
+            $attemptStmt = $conn->prepare("
+                SELECT attempt_id, question_ids
+                FROM quiz_attempts
+                WHERE user_id = ?
+                ORDER BY start_time DESC
+                LIMIT 1
+            ");
+            $attemptStmt->bind_param("i", $user_id);
+            $attemptStmt->execute();
+            $attemptRes = $attemptStmt->get_result();
+            $attemptRow = $attemptRes ? $attemptRes->fetch_assoc() : null;
+            $attemptStmt->close();
+
+            if ($attemptRow && !empty($attemptRow['question_ids'])) {
+                $attemptId = (int)$attemptRow['attempt_id'];
+                $questionIds = json_decode($attemptRow['question_ids'], true);
+
+                if (is_array($questionIds) && !empty($questionIds)) {
+                    // Load all questions for this attempt in the same order
+                    $placeholders = implode(',', array_fill(0, count($questionIds), '?'));
+                    $types = str_repeat('i', count($questionIds));
+                    $qSql = "
+                        SELECT id, question, option_a, option_b, option_c, option_d, correct_option
+                        FROM {$questionsTable}
+                        WHERE id IN ($placeholders)
+                    ";
+                    $qStmt = $conn->prepare($qSql);
+                    $qStmt->bind_param($types, ...$questionIds);
+                    $qStmt->execute();
+                    $qRes = $qStmt->get_result();
+
+                    $questionMap = [];
+                    while ($qRow = $qRes->fetch_assoc()) {
+                        $questionMap[$qRow['id']] = $qRow;
+                    }
+                    $qStmt->close();
+
+                    // Load saved answers for this attempt
+                    $aStmt = $conn->prepare("
+                        SELECT question_id, selected_option
+                        FROM quiz_answers
+                        WHERE attempt_id = ?
+                    ");
+                    $aStmt->bind_param("i", $attemptId);
+                    $aStmt->execute();
+                    $aRes = $aStmt->get_result();
+                    $answerMap = [];
+                    while ($aRow = $aRes->fetch_assoc()) {
+                        $answerMap[$aRow['question_id']] = $aRow['selected_option'];
+                    }
+                    $aStmt->close();
+
+                    // Build rows in the saved order and calculate live score
+                    $rows = [];
+                    $score = 0;
+                    foreach ($questionIds as $qid) {
+                        if (!isset($questionMap[$qid])) {
+                            continue;
+                        }
+                        $qRow = $questionMap[$qid];
+                        $selected = $answerMap[$qid] ?? null;
+                        $correctOption = $qRow['correct_option'] ?? null;
+                        $isCorrect = $selected !== null && $selected !== '' && $correctOption !== null && $selected === $correctOption;
+                        if ($isCorrect) {
+                            $score++;
+                        }
+
+                        $rows[] = [
+                            'question'        => $qRow['question'],
+                            'option_a'        => $qRow['option_a'],
+                            'option_b'        => $qRow['option_b'],
+                            'option_c'        => $qRow['option_c'],
+                            'option_d'        => $qRow['option_d'],
+                            'correct_option'  => $correctOption,
+                            'selected_option' => $selected,
+                            'is_correct'      => $isCorrect ? 1 : 0,
+                        ];
+                    }
+
+                    $totalQuestions = count($rows);
+                }
+            }
+        }
+
+        // Recalculate score from final $rows to ensure header KPI matches table status
+        $score = 0;
+        foreach ($rows as $row) {
+            if (!empty($row['is_correct'])) {
+                $score++;
+            }
+        }
+
         $percentage = $totalQuestions > 0 ? ($score / $totalQuestions) * 100 : 0;
         
         // Calculate breakdown: correct, incorrect, and not attempted
