@@ -415,26 +415,29 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             if ($inProgressResult->num_rows > 0) {
                 $inProgressAttempt = $inProgressResult->fetch_assoc();
+                $inProgressAttemptId = $inProgressAttempt['attempt_id'];
                 
-                // Get user details from database
-                $userDetailsStmt = $conn->prepare("SELECT name, email, mobile, role, level FROM users WHERE id = ?");
-                $userDetailsStmt->bind_param("i", $existingUserId);
-                $userDetailsStmt->execute();
-                $userDetailsResult = $userDetailsStmt->get_result();
-                $userDetails = $userDetailsResult->fetch_assoc();
-                $userDetailsStmt->close();
+                // CRITICAL: Check if session has the same attempt_id (same browser check)
+                // Only allow resume if session has matching attempt_id (same browser)
+                // Block if session doesn't have attempt_id or has different attempt_id (different browser)
+                $sessionAttemptId = $_SESSION['quiz_attempt_id'] ?? null;
                 
-                // Compare current form data with database user data and attempt data
-                $nameMatch = strtolower(trim($userDetails['name'])) === strtolower(trim($_POST['name'] ?? ''));
-                $emailMatch = strtolower(trim($userDetails['email'])) === strtolower(trim($email));
-                $mobileMatch = $userDetails['mobile'] === $mobile;
-                $roleMatch = strtolower(trim($userDetails['role'])) === strtolower(trim($role)) && 
-                             strtolower(trim($inProgressAttempt['role'])) === strtolower(trim($role));
-                $levelMatch = strtolower(trim($userDetails['level'])) === strtolower(trim($level)) && 
-                              strtolower(trim($inProgressAttempt['level'])) === strtolower(trim($level));
-                
-                if (!$nameMatch || !$emailMatch || !$mobileMatch || !$roleMatch || !$levelMatch) {
+                if ($sessionAttemptId == $inProgressAttemptId) {
+                    // Same browser - session has matching attempt_id, allow resume
+                    // This will be handled by the existing attempt resume logic below
                     $inProgressCheck->close();
+                } else {
+                    // Different browser - session doesn't have attempt_id or has different one
+                    // Block and show message
+                    $inProgressCheck->close();
+                    
+                    // Get user details from database
+                    $userDetailsStmt = $conn->prepare("SELECT name, email, mobile, role, level FROM users WHERE id = ?");
+                    $userDetailsStmt->bind_param("i", $existingUserId);
+                    $userDetailsStmt->execute();
+                    $userDetailsResult = $userDetailsStmt->get_result();
+                    $userDetails = $userDetailsResult->fetch_assoc();
+                    $userDetailsStmt->close();
                     
                     $userName = htmlspecialchars($userDetails['name'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
                     $userEmail = htmlspecialchars($userDetails['email'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
@@ -460,8 +463,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </div>
             <div class='modal-body'>
                 <p class='modal-message'>
-                    <strong>You have an in-progress quiz.</strong><br><br>
-                    Please use the same name, phone number, email, role, and level that you used to start the quiz.
+                    <strong>You have an in-progress quiz in another browser.</strong><br><br>
+                    Please use the same browser where you started the quiz to continue. If you cannot access that browser, please contact support.
                 </p>
                 <div style='background: #f9fafb; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e5e7eb;'>
                     <div style='font-size: 13px; font-weight: 600; color: #6b7280; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;'>Current Attempt Details:</div>
@@ -485,8 +488,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 </html>";
                     exit;
                 }
-                
-                $inProgressCheck->close();
             }
             
             // Use existing user_id
@@ -597,7 +598,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if ($existingAttemptResult->num_rows > 0) {
         // Resume existing attempt
         $existingAttempt = $existingAttemptResult->fetch_assoc();
-        $attempt_id = $existingAttempt['attempt_id'];
+        $existingAttemptId = $existingAttempt['attempt_id'];
+        
+        // CRITICAL: Only allow resume if session has matching attempt_id (same browser)
+        // Block if session doesn't have attempt_id or has different attempt_id (different browser)
+        $sessionAttemptId = $_SESSION['quiz_attempt_id'] ?? null;
+        
+        if ($sessionAttemptId != $existingAttemptId) {
+            // Different browser - block resume
+            $existingAttemptStmt->close();
+            header("Location: index.php?error=in_progress_other_browser");
+            exit;
+        }
+        
+        $attempt_id = $existingAttemptId;
         $is_resuming = true;
         $current_question_index = (int)$existingAttempt['current_question_index'];
         
