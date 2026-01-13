@@ -58,19 +58,21 @@ if ($attempt_id) {
     }
     
     // Check if already submitted
-    if ($attempt['status'] !== 'in_progress') {
+    // Allow both 'in_progress' and 'expired' status for submission (expired = auto-submit case)
+    if ($attempt['status'] !== 'in_progress' && $attempt['status'] !== 'expired') {
         // Already submitted, redirect to result
         header("Location: show_result.php?user_id=$user_id");
         exit;
     }
     
     // Lock attempt: Mark as submitted (atomic operation)
+    // Accept both 'in_progress' and 'expired' status (expired = timer ran out, now submitting)
     $lockStmt = $conn->prepare("
         UPDATE quiz_attempts 
         SET status = 'submitted', 
             end_time = NOW(),
             remaining_time_seconds = 0
-        WHERE attempt_id = ? AND status = 'in_progress'
+        WHERE attempt_id = ? AND (status = 'in_progress' OR status = 'expired')
     ");
     $lockStmt->bind_param("i", $attempt_id);
     $lockStmt->execute();
@@ -105,18 +107,18 @@ if ($attempt_id) {
     }
 } else {
     // Fallback: Use POST data (backward compatibility)
-    // Check if user has already submitted responses (prevent duplicate submission)
-    $checkResponse = $conn->query("SELECT COUNT(*) as count FROM responses WHERE user_id = $user_id");
-    $responseCount = $checkResponse->fetch_assoc()['count'];
-    
-    if ($responseCount > 0) {
-        // User already submitted, redirect to result page
-        header("Location: show_result.php?user_id=$user_id");
-        exit;
-    }
-    
-    $answers = $_POST['answers'] ?? [];
-    $allQuestionIds = json_decode($_POST['all_question_ids'] ?? '[]', true);
+// Check if user has already submitted responses (prevent duplicate submission)
+$checkResponse = $conn->query("SELECT COUNT(*) as count FROM responses WHERE user_id = $user_id");
+$responseCount = $checkResponse->fetch_assoc()['count'];
+
+if ($responseCount > 0) {
+    // User already submitted, redirect to result page
+    header("Location: show_result.php?user_id=$user_id");
+    exit;
+}
+
+$answers = $_POST['answers'] ?? [];
+$allQuestionIds = json_decode($_POST['all_question_ids'] ?? '[]', true);
 }
 
 // Prepare statements for performance and safety
