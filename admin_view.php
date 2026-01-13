@@ -192,16 +192,18 @@ $users = $conn->query("SELECT * FROM users ORDER BY submitted_at DESC");
                                 $endTs = $endDt->getTimestamp();
                                 $submitTimeDisplay = htmlspecialchars($endDt->format('Y-m-d h:i:s A'));
 
-                                // Duration in whole minutes between start and end
+                                // Duration between start and end (minutes + seconds)
                                 $diffSeconds = max(0, $endTs - $startTs);
                                 $durationMinutes = floor($diffSeconds / 60);
-                                $durationDisplay = $durationMinutes . ' min';
+                                $durationSeconds = $diffSeconds % 60;
+                                $durationDisplay = $durationMinutes . ' min ' . $durationSeconds . ' sec';
                             } else {
-                                // In-progress: no end_time yet, show duration till now
+                                // In-progress: no end_time yet, show duration till now (minutes + seconds)
                                 $nowTs = time();
                                 $diffSeconds = max(0, $nowTs - $startTs);
                                 $durationMinutes = floor($diffSeconds / 60);
-                                $durationDisplay = $durationMinutes . ' min (running)';
+                                $durationSeconds = $diffSeconds % 60;
+                                $durationDisplay = $durationMinutes . ' min ' . $durationSeconds . ' sec (running)';
                                 $submitTimeDisplay = 'In progress';
                             }
                         } catch (Exception $e) {
