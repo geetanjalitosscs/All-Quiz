@@ -43,7 +43,7 @@ $users = $conn->query("SELECT * FROM users ORDER BY submitted_at DESC");
                         type="text"
                         id="filterSearch"
                         class="form-control filter-input"
-                        placeholder="Search by name, email, role, or location"
+                        placeholder="Search by name, email, phone, role, or location"
                     >
                 </div>
 
@@ -72,9 +72,10 @@ $users = $conn->query("SELECT * FROM users ORDER BY submitted_at DESC");
                     $correct = $correctResult ? (int)$correctResult->fetch_assoc()['correct'] : 0;
                         $submittedAt = !empty($u['submitted_at']) ? htmlspecialchars($u['submitted_at']) : '-';
 
+                        $mobile = !empty($u['mobile']) ? htmlspecialchars($u['mobile']) : '-';
                         echo "<tr>";
                         echo "<td>{$count}</td>";
-                        echo "<td><div>" . htmlspecialchars($u['name']) . "</div><div class='text-muted' style='font-size:12px;'>" . htmlspecialchars($u['email']) . "</div></td>";
+                        echo "<td><div>" . htmlspecialchars($u['name']) . "</div><div class='text-muted' style='font-size:12px;'>" . htmlspecialchars($u['email']) . "</div><div class='text-muted' style='font-size:12px;'>" . $mobile . "</div></td>";
                         echo "<td><span class='pill-role'>" . htmlspecialchars($u['role']) . "</span><br><span style='font-size:12px;' class='text-muted'>" . htmlspecialchars($u['level']) . " · " . htmlspecialchars($u['place']) . "</span></td>";
                         echo "<td><span class='chip'>{$correct} / {$total}</span></td>";
                         echo "<td><span style='font-size:12px;'>" . $submittedAt . "</span></td>";
