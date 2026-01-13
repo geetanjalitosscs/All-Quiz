@@ -26,11 +26,11 @@ function fetchQuestionsFromStatement(mysqli_stmt $stmt): array
     while ($stmt->fetch()) {
         $questions[] = [
             'id'        => $id,
-            'question'  => $question,
-            'option_a'  => $optionA,
-            'option_b'  => $optionB,
-            'option_c'  => $optionC,
-            'option_d'  => $optionD,
+            'question'  => $question ?? '',
+            'option_a'  => $optionA ?? '',
+            'option_b'  => $optionB ?? '',
+            'option_c'  => $optionC ?? '',
+            'option_d'  => $optionD ?? '',
         ];
     }
 
@@ -81,6 +81,93 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET') {
     
     if ($attempt['role'] !== $role || $attempt['level'] !== $level) {
         header("Location: index.php");
+        exit;
+    }
+    
+    // CRITICAL: Verify credentials match the in-progress attempt
+    // Get user details from database
+    $userCheckStmt = $conn->prepare("SELECT name, email, mobile, role, level FROM users WHERE id = ?");
+    $userCheckStmt->bind_param("i", $user_id);
+    $userCheckStmt->execute();
+    $userCheckResult = $userCheckStmt->get_result();
+    
+    if ($userCheckResult->num_rows === 0) {
+        unset($_SESSION['quiz_attempt_id']);
+        header("Location: index.php");
+        exit;
+    }
+    
+    $userData = $userCheckResult->fetch_assoc();
+    $userCheckStmt->close();
+    
+    // Compare session credentials with database user data
+    $sessionName = $_SESSION['quiz_name'] ?? '';
+    $sessionMobile = $_SESSION['quiz_mobile'] ?? '';
+    $sessionRole = $_SESSION['quiz_role'] ?? '';
+    $sessionLevel = $_SESSION['quiz_level'] ?? '';
+    
+    // Check if credentials match
+    $nameMatch = strtolower(trim($userData['name'])) === strtolower(trim($sessionName));
+    $mobileMatch = $userData['mobile'] === $sessionMobile;
+    $roleMatch = strtolower(trim($userData['role'])) === strtolower(trim($sessionRole));
+    $levelMatch = strtolower(trim($userData['level'])) === strtolower(trim($sessionLevel));
+    
+    if (!$nameMatch || !$mobileMatch || !$roleMatch || !$levelMatch) {
+        // Credentials don't match - clear session and redirect with error
+        unset($_SESSION['quiz_attempt_id']);
+        unset($_SESSION['quiz_user_id']);
+        unset($_SESSION['quiz_role']);
+        unset($_SESSION['quiz_level']);
+        unset($_SESSION['quiz_name']);
+        unset($_SESSION['quiz_mobile']);
+        
+        $userName = htmlspecialchars($userData['name'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $userEmail = htmlspecialchars($userData['email'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $userMobile = htmlspecialchars($userData['mobile'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $userRole = htmlspecialchars($userData['role'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $userLevel = htmlspecialchars($userData['level'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        
+        $redirectUrl = 'index.php?name=' . urlencode($userData['name'] ?? '') . '&email=' . urlencode($userData['email'] ?? '') . '&mobile=' . urlencode($userData['mobile'] ?? '') . '&role=' . urlencode($userData['role'] ?? '') . '&level=' . urlencode($userData['level'] ?? '');
+        
+        echo "<!DOCTYPE html>
+<html>
+<head>
+    <title>Credentials Mismatch - Toss Consultancy Services</title>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <link rel='stylesheet' href='assets/app.css'>
+</head>
+<body class='app-shell'>
+    <div class='modal-overlay' style='display: flex;'>
+        <div class='modal-dialog'>
+            <div class='modal-header'>
+                <h2 class='modal-title'>Credentials Mismatch</h2>
+            </div>
+            <div class='modal-body'>
+                <p class='modal-message'>
+                    <strong>Credentials do not match the in-progress quiz.</strong><br><br>
+                    Please use the same name, phone number, email, role, and level that you used to start this quiz.
+                </p>
+                <div style='background: #f9fafb; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e5e7eb;'>
+                    <div style='font-size: 13px; font-weight: 600; color: #6b7280; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;'>Current Attempt Details:</div>
+                    <div style='display: grid; gap: 8px; font-size: 14px; color: #1f2937;'>
+                        <div><strong>Name:</strong> {$userName}</div>
+                        <div><strong>Email:</strong> {$userEmail}</div>
+                        <div><strong>Phone:</strong> {$userMobile}</div>
+                        <div><strong>Role:</strong> {$userRole}</div>
+                        <div><strong>Level:</strong> {$userLevel}</div>
+                    </div>
+                </div>
+                <div class='modal-actions'>
+                    <button type='button' class='modal-btn modal-btn-primary' onclick='window.location.href=\"{$redirectUrl}\"' style='width: 100%;'>
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>";
         exit;
     }
     
@@ -251,19 +338,155 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $checkStmt->close();
 
     if ($existingUserId !== null) {
-        // Check if user has already submitted responses
+        // CRITICAL: Check if user has already submitted responses OR has any quiz attempt
+        // This prevents duplicate attempts from different browsers
         $responseCheck = $conn->query("SELECT COUNT(*) as count FROM responses WHERE user_id = $existingUserId");
         $responseCount = $responseCheck->fetch_assoc()['count'];
         
-        if ($responseCount > 0) {
-            // User already submitted quiz -> show popup and send back to start
-            echo "<script>
-                alert('User already attempted. Please use a different phone number and email.');
-                window.location.href = 'index.php';
-            </script>";
+        // Check if user has ANY quiz attempt (in_progress, submitted, or expired)
+        $attemptCheckStmt = $conn->prepare("SELECT COUNT(*) as count FROM quiz_attempts WHERE user_id = ?");
+        $attemptCheckStmt->bind_param("i", $existingUserId);
+        $attemptCheckStmt->execute();
+        $attemptCheckResult = $attemptCheckStmt->get_result();
+        $attemptCount = 0;
+        if ($attemptCheckResult && ($attemptRow = $attemptCheckResult->fetch_assoc())) {
+            $attemptCount = (int)$attemptRow['count'];
+        }
+        $attemptCheckStmt->close();
+        
+        // User has attempted if they have submitted responses OR any quiz attempt
+        if ($responseCount > 0 || $attemptCount > 0) {
+            // User already attempted quiz -> show popup and send back to start
+            echo "<!DOCTYPE html>
+<html>
+<head>
+    <title>Already Attempted - Toss Consultancy Services</title>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <link rel='stylesheet' href='assets/app.css'>
+</head>
+<body class='app-shell'>
+    <div class='modal-overlay' style='display: flex;'>
+        <div class='modal-dialog'>
+            <div class='modal-header'>
+                <h2 class='modal-title'>Already Attempted</h2>
+            </div>
+            <div class='modal-body'>
+                <p class='modal-message'>
+                    <strong>User already attempted this assessment.</strong><br><br>
+                    Please use a different phone number and email to take the quiz again.
+                </p>
+                <div class='modal-actions'>
+                    <button type='button' class='modal-btn modal-btn-primary' onclick='window.location.href=\"index.php\"' style='width: 100%;'>
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>";
             exit;
         } else {
-            // User exists but hasn't submitted quiz, use existing user_id
+            // User exists but hasn't submitted quiz
+            // CRITICAL: Update location if different (only location can be updated)
+            $newPlace = trim($_POST['place'] ?? '');
+            if (!empty($newPlace)) {
+                $updatePlaceStmt = $conn->prepare("UPDATE users SET place = ? WHERE id = ?");
+                $updatePlaceStmt->bind_param("si", $newPlace, $existingUserId);
+                $updatePlaceStmt->execute();
+                $updatePlaceStmt->close();
+            }
+            
+            // CRITICAL: Check if there's an in-progress attempt and verify credentials match
+            $inProgressCheck = $conn->prepare("
+                SELECT attempt_id, role, level 
+                FROM quiz_attempts 
+                WHERE user_id = ? AND status = 'in_progress'
+                ORDER BY start_time DESC 
+                LIMIT 1
+            ");
+            $inProgressCheck->bind_param("i", $existingUserId);
+            $inProgressCheck->execute();
+            $inProgressResult = $inProgressCheck->get_result();
+            
+            if ($inProgressResult->num_rows > 0) {
+                $inProgressAttempt = $inProgressResult->fetch_assoc();
+                
+                // Get user details from database
+                $userDetailsStmt = $conn->prepare("SELECT name, email, mobile, role, level FROM users WHERE id = ?");
+                $userDetailsStmt->bind_param("i", $existingUserId);
+                $userDetailsStmt->execute();
+                $userDetailsResult = $userDetailsStmt->get_result();
+                $userDetails = $userDetailsResult->fetch_assoc();
+                $userDetailsStmt->close();
+                
+                // Compare current form data with database user data and attempt data
+                $nameMatch = strtolower(trim($userDetails['name'])) === strtolower(trim($_POST['name'] ?? ''));
+                $emailMatch = strtolower(trim($userDetails['email'])) === strtolower(trim($email));
+                $mobileMatch = $userDetails['mobile'] === $mobile;
+                $roleMatch = strtolower(trim($userDetails['role'])) === strtolower(trim($role)) && 
+                             strtolower(trim($inProgressAttempt['role'])) === strtolower(trim($role));
+                $levelMatch = strtolower(trim($userDetails['level'])) === strtolower(trim($level)) && 
+                              strtolower(trim($inProgressAttempt['level'])) === strtolower(trim($level));
+                
+                if (!$nameMatch || !$emailMatch || !$mobileMatch || !$roleMatch || !$levelMatch) {
+                    $inProgressCheck->close();
+                    
+                    $userName = htmlspecialchars($userDetails['name'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+                    $userEmail = htmlspecialchars($userDetails['email'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+                    $userMobile = htmlspecialchars($userDetails['mobile'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+                    $userRole = htmlspecialchars($userDetails['role'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+                    $userLevel = htmlspecialchars($userDetails['level'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+                    
+                    $redirectUrl = 'index.php?name=' . urlencode($userDetails['name'] ?? '') . '&email=' . urlencode($userDetails['email'] ?? '') . '&mobile=' . urlencode($userDetails['mobile'] ?? '') . '&role=' . urlencode($userDetails['role'] ?? '') . '&level=' . urlencode($userDetails['level'] ?? '');
+                    
+                    echo "<!DOCTYPE html>
+<html>
+<head>
+    <title>In-Progress Quiz Found - Toss Consultancy Services</title>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <link rel='stylesheet' href='assets/app.css'>
+</head>
+<body class='app-shell'>
+    <div class='modal-overlay' style='display: flex;'>
+        <div class='modal-dialog'>
+            <div class='modal-header'>
+                <h2 class='modal-title'>In-Progress Quiz Found</h2>
+            </div>
+            <div class='modal-body'>
+                <p class='modal-message'>
+                    <strong>You have an in-progress quiz.</strong><br><br>
+                    Please use the same name, phone number, email, role, and level that you used to start the quiz.
+                </p>
+                <div style='background: #f9fafb; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e5e7eb;'>
+                    <div style='font-size: 13px; font-weight: 600; color: #6b7280; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;'>Current Attempt Details:</div>
+                    <div style='display: grid; gap: 8px; font-size: 14px; color: #1f2937;'>
+                        <div><strong>Name:</strong> {$userName}</div>
+                        <div><strong>Email:</strong> {$userEmail}</div>
+                        <div><strong>Phone:</strong> {$userMobile}</div>
+                        <div><strong>Role:</strong> {$userRole}</div>
+                        <div><strong>Level:</strong> {$userLevel}</div>
+                    </div>
+                </div>
+                <div class='modal-actions'>
+                    <button type='button' class='modal-btn modal-btn-primary' onclick='window.location.href=\"{$redirectUrl}\"' style='width: 100%;'>
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>";
+                    exit;
+                }
+                
+                $inProgressCheck->close();
+            }
+            
+            // Use existing user_id
             $user_id = $existingUserId;
         }
     } else {
@@ -568,6 +791,44 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </div>
     </div>
 
+    <!-- Modal Popup for Auto-Submit -->
+    <div class="modal-overlay" id="autoSubmitModal" style="display: none;">
+        <div class="modal-dialog">
+            <div class="modal-header" style="background: linear-gradient(135deg, #fee2e2, #fef2f2);">
+                <h2 class="modal-title" style="color: #b91c1c;">Time is Up</h2>
+            </div>
+            <div class="modal-body">
+                <p class="modal-message">
+                    <strong>Your time has expired!</strong><br><br>
+                    The quiz will be automatically submitted now. Your answers have been saved.
+                </p>
+                <div class="modal-actions">
+                    <button type="button" class="modal-btn modal-btn-primary" id="autoSubmitBtn" style="width: 100%;">
+                        Submitting...
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Popup for Credentials Mismatch -->
+    <div class="modal-overlay" id="credentialsModal">
+        <div class="modal-dialog">
+            <div class="modal-header" style="background: linear-gradient(135deg, #fef3c7, #fde68a);">
+                <h2 class="modal-title" style="color: #92400e;">Credentials Mismatch</h2>
+            </div>
+            <div class="modal-body">
+                <p class="modal-message" id="credentialsMessage" style="color: #374151; margin-bottom: 20px;"></p>
+                <div id="credentialsDetails" style="background: #f9fafb; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e5e7eb;"></div>
+                <div class="modal-actions">
+                    <button type="button" class="modal-btn modal-btn-primary" onclick="closeCredentialsModal()" style="width: 100%;">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <main class="app-main">
         <div class="app-main-inner">
             <section class="quiz-layout">
@@ -607,17 +868,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             }
 
                             echo "<article class='quiz-question-item'>";
-                            echo "<h2 class='quiz-question-title'>Q" . ($index + 1) . ". {$q['question']}</h2>";
+                            echo "<h2 class='quiz-question-title'>Q" . ($index + 1) . ". " . htmlspecialchars($q['question'] ?? '', ENT_QUOTES, 'UTF-8') . "</h2>";
                             // Restore saved answer if exists
                             $saved_option = $saved_answers[$q['id']] ?? null;
                             $checked_a = ($saved_option === 'A') ? ' checked' : '';
                             $checked_b = ($saved_option === 'B') ? ' checked' : '';
                             $checked_c = ($saved_option === 'C') ? ' checked' : '';
                             $checked_d = ($saved_option === 'D') ? ' checked' : '';
-                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='A' data-question-id='{$q['id']}'{$checked_a}> <span>A) {$q['option_a']}</span></label>";
-                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='B' data-question-id='{$q['id']}'{$checked_b}> <span>B) {$q['option_b']}</span></label>";
-                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='C' data-question-id='{$q['id']}'{$checked_c}> <span>C) {$q['option_c']}</span></label>";
-                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='D' data-question-id='{$q['id']}'{$checked_d}> <span>D) {$q['option_d']}</span></label>";
+                            $opt_a = htmlspecialchars($q['option_a'] ?? '', ENT_QUOTES, 'UTF-8');
+                            $opt_b = htmlspecialchars($q['option_b'] ?? '', ENT_QUOTES, 'UTF-8');
+                            $opt_c = htmlspecialchars($q['option_c'] ?? '', ENT_QUOTES, 'UTF-8');
+                            $opt_d = htmlspecialchars($q['option_d'] ?? '', ENT_QUOTES, 'UTF-8');
+                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='A' data-question-id='{$q['id']}'{$checked_a}> <span>A) {$opt_a}</span></label>";
+                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='B' data-question-id='{$q['id']}'{$checked_b}> <span>B) {$opt_b}</span></label>";
+                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='C' data-question-id='{$q['id']}'{$checked_c}> <span>C) {$opt_c}</span></label>";
+                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='D' data-question-id='{$q['id']}'{$checked_d}> <span>D) {$opt_d}</span></label>";
                             echo "</article>";
                         }
                         // Close the last block
@@ -730,6 +995,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             const modal = document.getElementById('warningModal');
             if (modal) {
                 modal.classList.remove('active');
+            }
+        }
+
+        function showAutoSubmitModal() {
+            const modal = document.getElementById('autoSubmitModal');
+            const submitBtn = document.getElementById('autoSubmitBtn');
+            if (modal) {
+                modal.style.display = 'block';
+                // Disable button and show submitting state
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Submitting...';
+                }
+                // Auto-submit after a brief delay to show the modal
+                setTimeout(() => {
+                    document.getElementById("quizForm").submit();
+                }, 1000);
+            } else {
+                // Fallback if modal not found
+                document.getElementById("quizForm").submit();
             }
         }
 
@@ -860,11 +1145,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 
                 // Remove active from all blocks first
                 for (let i = 0; i < totalBlocks; i++) {
-                    const block = document.getElementById(`block-${i}`);
-                    if (block) {
-                        block.classList.remove('active');
-                    }
+                const block = document.getElementById(`block-${i}`);
+                if (block) {
+                    block.classList.remove('active');
                 }
+            }
                 
                 // Activate the target block
                 const targetBlockEl = document.getElementById(`block-${targetBlock}`);
@@ -915,7 +1200,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             // Update question position on server
             updateQuestionPosition(currentBlock);
         }
-        
+
         // Update current question position on server
         async function updateQuestionPosition(index) {
             try {
@@ -997,16 +1282,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     return;
                 }
                 
-                if (timeLeft <= 0) {
+            if (timeLeft <= 0) {
                     clearInterval(timerInterval);
                     timerInterval = null;
-                    alert('Time is up! Submitting quiz...');
-                    document.getElementById("quizForm").submit();
+                showAutoSubmitModal();
                 } else {
-                    timeLeft--;
+            timeLeft--;
                     updateTimerDisplay();
                 }
-            }, 1000);
+        }, 1000);
         }
         
         // CRITICAL: Sync timer with server FIRST before starting
@@ -1035,8 +1319,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         // Only submit if actually expired (not on new quiz start)
                         // For new quiz, if expired is true, it's a calculation error
                         if (isResuming && timeLeft > 0) {
-                            alert('Time has expired! Submitting quiz...');
-                            document.getElementById("quizForm").submit();
+                            showAutoSubmitModal();
                             return;
                         } else {
                             // New quiz or calculation error - use default timer
@@ -1096,8 +1379,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 if (data.success) {
                     if (data.expired) {
                         clearInterval(timerInterval);
-                        alert('Time has expired! Submitting quiz...');
-                        document.getElementById("quizForm").submit();
+                        showAutoSubmitModal();
                     } else if (data.needs_correction || Math.abs(timeLeft - data.remaining_seconds) > 5) {
                         // Server time is authoritative - update client timer
                         // Stop current timer interval
