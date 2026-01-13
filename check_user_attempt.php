@@ -31,26 +31,28 @@ if ($res->num_rows > 0) {
     $rc = $conn->query("SELECT COUNT(*) AS c FROM responses WHERE user_id = {$userId}");
     $responseCount = (int)$rc->fetch_assoc()['c'];
     
-    // CRITICAL: Check if user has ANY quiz attempt (in_progress, submitted, or expired)
-    // This prevents duplicate attempts from different browsers
+    // CRITICAL: Check if user has submitted or expired quiz attempt
+    // Allow in_progress attempts (user can resume from same browser)
+    // Block only submitted or expired attempts
     $attemptCheckStmt = $conn->prepare("
         SELECT COUNT(*) AS c 
         FROM quiz_attempts 
-        WHERE user_id = ?
+        WHERE user_id = ? AND (status = 'submitted' OR status = 'expired')
     ");
     $attemptCheckStmt->bind_param("i", $userId);
     $attemptCheckStmt->execute();
     $attemptResult = $attemptCheckStmt->get_result();
-    $attemptCount = 0;
+    $completedAttemptCount = 0;
     if ($attemptResult && ($attemptRow = $attemptResult->fetch_assoc())) {
-        $attemptCount = (int)$attemptRow['c'];
+        $completedAttemptCount = (int)$attemptRow['c'];
     }
     $attemptCheckStmt->close();
     
     // User has attempted if:
     // 1. Has submitted responses (legacy), OR
-    // 2. Has any quiz attempt (in_progress, submitted, or expired)
-    $response['attempted'] = ($responseCount > 0 || $attemptCount > 0);
+    // 2. Has submitted or expired quiz attempt
+    // NOTE: in_progress attempts are allowed (user can resume)
+    $response['attempted'] = ($responseCount > 0 || $completedAttemptCount > 0);
 }
 
 echo json_encode($response);
