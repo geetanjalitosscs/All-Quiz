@@ -931,25 +931,6 @@ input:not(:placeholder-shown):valid:not([readonly]) {
   line-height: 1.5;
 }
 
-/* Space highlighting - makes spaces visible in questions and options */
-.space-highlight {
-  background-color: #fef3c7;
-  color: #92400e;
-  padding: 2px 1px;
-  border-radius: 2px;
-  font-weight: 600;
-  font-size: 0.9em;
-  display: inline-block;
-  min-width: 0.5em;
-  text-align: center;
-  margin: 0 1px;
-}
-
-body.dark-mode .space-highlight {
-  background-color: #78350f;
-  color: #fbbf24;
-}
-
 .quiz-option-selected {
   background: #e0f2fe;
   border-color: #2563eb;
