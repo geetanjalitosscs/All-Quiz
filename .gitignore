@@ -44,3 +44,15 @@ package-lock.json
 # Configuration files
 db.php
 config.php
+
+
+
+
+
+
+
+
+*.sql
+config.server.php
+db.server.php
+test.php

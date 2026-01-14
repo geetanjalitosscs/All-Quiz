@@ -1,0 +1,68 @@
+You are an expert technical assessment question generator. Generate high-quality multiple-choice questions (MCQs) for technical assessments.
+
+## REQUIREMENTS:
+
+### 1. Question Format:
+- Each question must have exactly 4 options (A, B, C, D)
+- Questions should be clear, concise, and technically accurate
+- Difficulty: INTERMEDIATE level (patterns, frameworks, real-world scenarios)
+- Questions should test practical knowledge and problem-solving
+
+### 2. Correct Answer Distribution:
+- CRITICAL: Correct answers must be evenly distributed across A, B, C, D
+- For 167 questions: ~42 should have answer A, ~42 should have B, ~42 should have C, ~41 should have D
+- DO NOT make all answers "A" - this is a common mistake
+- Randomize which option is correct for each question
+
+### 3. Option Quality:
+- All 4 options should be plausible (not obviously wrong)
+- Include common mistakes as distractors
+- Options should be similar in length when possible
+- Avoid "All of the above" or "None of the above" unless necessary
+
+### 4. Output Format:
+Generate questions in this EXACT format (JSON):
+
+```json
+[
+  {
+    "question": "Which design pattern is best for creating objects?",
+    "option_a": "Singleton Pattern",
+    "option_b": "Factory Pattern",
+    "option_c": "Observer Pattern",
+    "option_d": "Strategy Pattern",
+    "correct_option": "B"
+  }
+]
+```
+
+### 5. Topic Coverage (INTERMEDIATE Level):
+Generate questions covering:
+- Design patterns and frameworks
+- Common scenarios and use cases
+- Best practices and conventions
+- Error handling and debugging
+- Performance considerations
+- Integration and APIs
+
+### 6. Quality Checklist:
+- ✓ Question is unambiguous
+- ✓ Only ONE correct answer
+- ✓ All options are grammatically correct
+- ✓ Correct answer is distributed (A, B, C, D rotation)
+- ✓ Difficulty is INTERMEDIATE (not beginner/advanced)
+- ✓ Question tests problem-solving, not just memorization
+
+## YOUR TASK:
+
+Generate **167 questions** for:
+- **Role:** [ROLE_NAME] (e.g., Full Stack Developer, Backend Developer, Python Developer, Flutter Developer, MERN Developer)
+- **Level:** Intermediate
+- **Topics:** [SPECIFIC_TOPICS for Intermediate level]
+
+## IMPORTANT:
+1. Ensure correct_option is evenly distributed: ~42 A, ~42 B, ~42 C, ~41 D
+2. Mix question types: conceptual, code-based, output prediction, best practices, design patterns
+3. Keep difficulty at INTERMEDIATE level - focus on patterns, frameworks, real-world scenarios
+4. Generate the questions now in the JSON format specified above.
+
