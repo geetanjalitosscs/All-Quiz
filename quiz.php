@@ -37,42 +37,6 @@ function fetchQuestionsFromStatement(mysqli_stmt $stmt): array
     return $questions;
 }
 
-/**
- * Highlight ONLY leading and trailing spaces in text
- * Middle spaces are NOT highlighted (normal word spacing)
- * This helps identify leading/trailing spaces in database content
- *
- * @param string $text The text to highlight spaces in
- * @return string Text with only leading/trailing spaces highlighted
- */
-function highlightSpaces($text) {
-    if (empty($text)) {
-        return '';
-    }
-    
-    // Find leading spaces
-    preg_match('/^(\s+)/', $text, $leadingMatch);
-    $leadingSpaces = $leadingMatch[1] ?? '';
-    
-    // Find trailing spaces
-    preg_match('/(\s+)$/', $text, $trailingMatch);
-    $trailingSpaces = $trailingMatch[1] ?? '';
-    
-    // Get the middle content (without leading/trailing spaces)
-    $middleContent = trim($text);
-    
-    // Replace leading spaces with highlighted spans
-    $leadingHighlighted = preg_replace('/ /', '<span class="space-highlight" title="Leading space">·</span>', $leadingSpaces);
-    
-    // Replace trailing spaces with highlighted spans
-    $trailingHighlighted = preg_replace('/ /', '<span class="space-highlight" title="Trailing space">·</span>', $trailingSpaces);
-    
-    // Combine: leading highlighted + middle content + trailing highlighted
-    $highlighted = $leadingHighlighted . htmlspecialchars($middleContent, ENT_QUOTES, 'UTF-8') . $trailingHighlighted;
-    
-    return $highlighted;
-}
-
 // ============================================
 // HANDLE BOTH POST (NEW QUIZ) AND GET (RESUME)
 // ============================================
@@ -921,28 +885,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             }
 
                             echo "<article class='quiz-question-item'>";
-                            // Question text - NO space highlighting
-                            $questionText = htmlspecialchars($q['question'] ?? '', ENT_QUOTES, 'UTF-8');
-                            echo "<h2 class='quiz-question-title'>Q" . ($index + 1) . ". " . $questionText . "</h2>";
+                            echo "<h2 class='quiz-question-title'>Q" . ($index + 1) . ". " . htmlspecialchars($q['question'] ?? '', ENT_QUOTES, 'UTF-8') . "</h2>";
                             // Restore saved answer if exists
                             $saved_option = $saved_answers[$q['id']] ?? null;
                             $checked_a = ($saved_option === 'A') ? ' checked' : '';
                             $checked_b = ($saved_option === 'B') ? ' checked' : '';
                             $checked_c = ($saved_option === 'C') ? ' checked' : '';
                             $checked_d = ($saved_option === 'D') ? ' checked' : '';
-                            // Highlight spaces ONLY in options
                             $opt_a = htmlspecialchars($q['option_a'] ?? '', ENT_QUOTES, 'UTF-8');
                             $opt_b = htmlspecialchars($q['option_b'] ?? '', ENT_QUOTES, 'UTF-8');
                             $opt_c = htmlspecialchars($q['option_c'] ?? '', ENT_QUOTES, 'UTF-8');
                             $opt_d = htmlspecialchars($q['option_d'] ?? '', ENT_QUOTES, 'UTF-8');
-                            $opt_a_highlighted = highlightSpaces($opt_a);
-                            $opt_b_highlighted = highlightSpaces($opt_b);
-                            $opt_c_highlighted = highlightSpaces($opt_c);
-                            $opt_d_highlighted = highlightSpaces($opt_d);
-                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='A' data-question-id='{$q['id']}'{$checked_a}> <span>A) {$opt_a_highlighted}</span></label>";
-                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='B' data-question-id='{$q['id']}'{$checked_b}> <span>B) {$opt_b_highlighted}</span></label>";
-                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='C' data-question-id='{$q['id']}'{$checked_c}> <span>C) {$opt_c_highlighted}</span></label>";
-                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='D' data-question-id='{$q['id']}'{$checked_d}> <span>D) {$opt_d_highlighted}</span></label>";
+                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='A' data-question-id='{$q['id']}'{$checked_a}> <span>A) {$opt_a}</span></label>";
+                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='B' data-question-id='{$q['id']}'{$checked_b}> <span>B) {$opt_b}</span></label>";
+                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='C' data-question-id='{$q['id']}'{$checked_c}> <span>C) {$opt_c}</span></label>";
+                            echo "<label class='quiz-option'><input type='radio' name='answers[{$q['id']}]' value='D' data-question-id='{$q['id']}'{$checked_d}> <span>D) {$opt_d}</span></label>";
                             echo "</article>";
                         }
                         // Close the last block
@@ -1062,7 +1019,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             const modal = document.getElementById('autoSubmitModal');
             const submitBtn = document.getElementById('autoSubmitBtn');
             if (modal) {
-                modal.style.display = 'block';
+                modal.style.display = 'flex';
                 // Disable button and show submitting state
                 if (submitBtn) {
                     submitBtn.disabled = true;
