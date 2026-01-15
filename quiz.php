@@ -423,7 +423,79 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $sessionAttemptId = $_SESSION['quiz_attempt_id'] ?? null;
                 
                 if ($sessionAttemptId == $inProgressAttemptId) {
-                    // Same browser - session has matching attempt_id, allow resume
+                    // Same browser - session has matching attempt_id
+                    // CRITICAL: Also check if role and level match (prevent overwrite with different role/level)
+                    $attemptRole = trim($inProgressAttempt['role'] ?? '');
+                    $attemptLevel = trim($inProgressAttempt['level'] ?? '');
+                    $currentRole = trim($role);
+                    $currentLevel = trim($level);
+                    
+                    $roleMatch = strtolower($attemptRole) === strtolower($currentRole);
+                    $levelMatch = strtolower($attemptLevel) === strtolower($currentLevel);
+                    
+                    if (!$roleMatch || !$levelMatch) {
+                        // Same session but different role/level - show popup
+                        $inProgressCheck->close();
+                        
+                        // Get user details from database
+                        $userDetailsStmt = $conn->prepare("SELECT name, email, mobile, role, level FROM users WHERE id = ?");
+                        $userDetailsStmt->bind_param("i", $existingUserId);
+                        $userDetailsStmt->execute();
+                        $userDetailsResult = $userDetailsStmt->get_result();
+                        $userDetails = $userDetailsResult->fetch_assoc();
+                        $userDetailsStmt->close();
+                        
+                        $userName = htmlspecialchars($userDetails['name'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+                        $userEmail = htmlspecialchars($userDetails['email'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+                        $userMobile = htmlspecialchars($userDetails['mobile'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+                        $userRole = htmlspecialchars($attemptRole, ENT_QUOTES, 'UTF-8');
+                        $userLevel = htmlspecialchars($attemptLevel, ENT_QUOTES, 'UTF-8');
+                        
+                        $redirectUrl = 'index.php?name=' . urlencode($userDetails['name'] ?? '') . '&email=' . urlencode($userDetails['email'] ?? '') . '&mobile=' . urlencode($userDetails['mobile'] ?? '') . '&role=' . urlencode($attemptRole) . '&level=' . urlencode($attemptLevel);
+                        
+                        echo "<!DOCTYPE html>
+<html>
+<head>
+    <title>Role/Level Mismatch - Toss Consultancy Services</title>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <link rel='stylesheet' href='assets/app.css'>
+</head>
+<body class='app-shell'>
+    <div class='modal-overlay' style='display: flex;'>
+        <div class='modal-dialog'>
+            <div class='modal-header' style='background: linear-gradient(135deg, #fef3c7, #fde68a);'>
+                <h2 class='modal-title' style='color: #92400e;'>Role/Level Mismatch</h2>
+            </div>
+            <div class='modal-body'>
+                <p class='modal-message'>
+                    <strong>You have an in-progress assessment with different role/level.</strong><br><br>
+                    Please use the same role and level that you used to start this assessment. Changing role or level will overwrite your current progress.
+                </p>
+                <div style='background: #f9fafb; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e5e7eb;'>
+                    <div style='font-size: 13px; font-weight: 600; color: #6b7280; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;'>Current Assessment Details:</div>
+                    <div style='display: grid; gap: 8px; font-size: 14px; color: #1f2937;'>
+                        <div><strong>Name:</strong> {$userName}</div>
+                        <div><strong>Email:</strong> {$userEmail}</div>
+                        <div><strong>Phone:</strong> {$userMobile}</div>
+                        <div><strong>Role:</strong> <span style='color: #059669; font-weight: 600;'>{$userRole}</span></div>
+                        <div><strong>Level:</strong> <span style='color: #059669; font-weight: 600;'>{$userLevel}</span></div>
+                    </div>
+                </div>
+                <div class='modal-actions'>
+                    <button type='button' class='modal-btn modal-btn-primary' onclick='window.location.href=\"{$redirectUrl}\"' style='width: 100%;'>
+                        Use Correct Role/Level
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>";
+                        exit;
+                    }
+                    
+                    // Same browser - session has matching attempt_id AND role/level match, allow resume
                     // This will be handled by the existing attempt resume logic below
                     $inProgressCheck->close();
                 } else {
