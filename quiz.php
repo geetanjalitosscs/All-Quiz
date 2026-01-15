@@ -274,6 +274,84 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    // CRITICAL: Check if there's an active quiz in the current browser session
+    // This prevents multiple quiz attempts from same browser (different tabs/credentials)
+    if (isset($_SESSION['quiz_attempt_id'])) {
+        $sessionAttemptId = $_SESSION['quiz_attempt_id'];
+        $sessionUserId = $_SESSION['quiz_user_id'] ?? null;
+        
+        // Check if the session attempt is still in_progress
+        $activeAttemptStmt = $conn->prepare("
+            SELECT attempt_id, user_id, role, level, start_time, expires_at
+            FROM quiz_attempts 
+            WHERE attempt_id = ? AND status = 'in_progress'
+        ");
+        $activeAttemptStmt->bind_param("i", $sessionAttemptId);
+        $activeAttemptStmt->execute();
+        $activeAttemptResult = $activeAttemptStmt->get_result();
+        
+        if ($activeAttemptResult->num_rows > 0) {
+            $activeAttempt = $activeAttemptResult->fetch_assoc();
+            $activeAttemptStmt->close();
+            
+            // Get user details for display
+            $activeUserStmt = $conn->prepare("SELECT name, email, mobile FROM users WHERE id = ?");
+            $activeUserStmt->bind_param("i", $activeAttempt['user_id']);
+            $activeUserStmt->execute();
+            $activeUserResult = $activeUserStmt->get_result();
+            $activeUserData = $activeUserResult->fetch_assoc();
+            $activeUserStmt->close();
+            
+            $activeUserName = htmlspecialchars($activeUserData['name'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+            $activeUserEmail = htmlspecialchars($activeUserData['email'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+            $activeUserMobile = htmlspecialchars($activeUserData['mobile'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+            $activeRole = htmlspecialchars($activeAttempt['role'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+            $activeLevel = htmlspecialchars($activeAttempt['level'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+            
+            echo "<!DOCTYPE html>
+<html>
+<head>
+    <title>Active Quiz in Progress - Toss Consultancy Services</title>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <link rel='stylesheet' href='assets/app.css'>
+</head>
+<body class='app-shell'>
+    <div class='modal-overlay' style='display: flex;'>
+        <div class='modal-dialog'>
+            <div class='modal-header'>
+                <h2 class='modal-title'>Active Quiz in Progress</h2>
+            </div>
+            <div class='modal-body'>
+                <p class='modal-message'>
+                    <strong>You have an active quiz in progress in this browser.</strong><br><br>
+                    Please finish the current quiz first. You can start a new quiz only after completing or waiting for the current quiz to expire (45 minutes from start time).
+                </p>
+                <div style='background: #f9fafb; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e5e7eb;'>
+                    <div style='font-size: 13px; font-weight: 600; color: #6b7280; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;'>Current Quiz Details:</div>
+                    <div style='display: grid; gap: 8px; font-size: 14px; color: #1f2937;'>
+                        <div><strong>Name:</strong> {$activeUserName}</div>
+                        <div><strong>Email:</strong> {$activeUserEmail}</div>
+                        <div><strong>Phone:</strong> {$activeUserMobile}</div>
+                        <div><strong>Role:</strong> {$activeRole}</div>
+                        <div><strong>Level:</strong> {$activeLevel}</div>
+                    </div>
+                </div>
+                <div class='modal-actions'>
+                    <button type='button' class='modal-btn modal-btn-primary' onclick='window.location.href=\"quiz.php\"' style='width: 100%;'>
+                        Continue Current Quiz
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>";
+            exit;
+        }
+        $activeAttemptStmt->close();
+    }
+    
     // NEW QUIZ START - Read role and level from form (required)
     $role  = trim($_POST['role'] ?? '');
     $level = trim($_POST['level'] ?? '');
