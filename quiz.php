@@ -308,6 +308,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $activeRole = htmlspecialchars($activeAttempt['role'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
             $activeLevel = htmlspecialchars($activeAttempt['level'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
             
+            // Check if current form credentials match active quiz credentials
+            $currentName = trim($_POST['name'] ?? '');
+            $currentEmail = trim($_POST['email'] ?? '');
+            $currentMobile = trim($_POST['mobile'] ?? '');
+            $currentRole = trim($_POST['role'] ?? '');
+            $currentLevel = trim($_POST['level'] ?? '');
+            
+            $credentialsMatch = (
+                strtolower($currentName) === strtolower($activeUserName) &&
+                strtolower($currentEmail) === strtolower($activeUserEmail) &&
+                $currentMobile === $activeUserMobile &&
+                strtolower($currentRole) === strtolower($activeRole) &&
+                strtolower($currentLevel) === strtolower($activeLevel)
+            );
+            
+            // If credentials and role/level match, redirect to quiz.php to resume
+            if ($credentialsMatch) {
+                header('Location: quiz.php');
+                exit;
+            }
+            
             echo "<!DOCTYPE html>
 <html>
 <head>
@@ -594,6 +615,32 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $userMobile = htmlspecialchars($userDetails['mobile'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
                     $userRole = htmlspecialchars($userDetails['role'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
                     $userLevel = htmlspecialchars($userDetails['level'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+                    
+                    // Check if current form credentials match in-progress quiz credentials
+                    $currentName = trim($_POST['name'] ?? '');
+                    $currentEmail = trim($_POST['email'] ?? '');
+                    $currentMobile = trim($_POST['mobile'] ?? '');
+                    $currentRole = trim($_POST['role'] ?? '');
+                    $currentLevel = trim($_POST['level'] ?? '');
+                    
+                    $credentialsMatch = (
+                        strtolower($currentName) === strtolower($userName) &&
+                        strtolower($currentEmail) === strtolower($userEmail) &&
+                        $currentMobile === $userMobile &&
+                        strtolower($currentRole) === strtolower($userRole) &&
+                        strtolower($currentLevel) === strtolower($userLevel)
+                    );
+                    
+                    // If credentials and role/level match, set session and redirect to quiz.php to resume
+                    if ($credentialsMatch) {
+                        $_SESSION['quiz_attempt_id'] = $inProgressAttemptId;
+                        $_SESSION['quiz_user_id'] = $existingUserId;
+                        $_SESSION['quiz_name'] = $userName;
+                        $_SESSION['quiz_email'] = $userEmail;
+                        $_SESSION['quiz_mobile'] = $userMobile;
+                        header('Location: quiz.php');
+                        exit;
+                    }
                     
                     $redirectUrl = 'index.php?name=' . urlencode($userDetails['name'] ?? '') . '&email=' . urlencode($userDetails['email'] ?? '') . '&mobile=' . urlencode($userDetails['mobile'] ?? '') . '&role=' . urlencode($userDetails['role'] ?? '') . '&level=' . urlencode($userDetails['level'] ?? '');
                     
@@ -938,26 +985,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </div>
     </header>
 
-    <!-- Modal Popup for Warnings -->
-    <div class="modal-overlay" id="warningModal">
-        <div class="modal-dialog">
-            <div class="modal-header">
-                <h2 class="modal-title">Warning: Progress Will Be Lost</h2>
-            </div>
-            <div class="modal-body">
-                <p class="modal-message">
-                    <strong>Your progress is automatically saved!</strong><br><br>
-                    You can safely reload the page or return later. Your answers and timer will be restored automatically. However, navigating away may interrupt your assessment flow.
-                </p>
-                <div class="modal-actions">
-                    <button type="button" class="modal-btn modal-btn-secondary" onclick="closeWarningModal()">
-                        Stay on Page
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Modal Popup for Auto-Submit -->
     <div class="modal-overlay" id="autoSubmitModal" style="display: none;">
         <div class="modal-dialog">
@@ -1065,9 +1092,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 <button type="button" class="btn btn-outline btn-sm" id="nextBtn" onclick="changePage(1)">
                                     Next →
                                 </button>
-                                <button type="submit" class="btn btn-primary btn-sm" id="submitBtn" style="display:none;">
-                                    Submit quiz
-                                </button>
                             </div>
                         </div>
                     </form>
@@ -1081,6 +1105,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             <div id="timerSidebar" class="timer-value">45:00</div>
                         </div>
                         <div class="badge badge-danger">Auto submit on timeout</div>
+                    </div>
+                    <div style="display: flex; justify-content: center; margin-top: 6px;">
+                        <button type="submit" form="quizForm" class="btn btn-primary btn-sm" id="submitBtn" style="display:inline-flex; width: fit-content !important;">
+                            Submit quiz
+                        </button>
                     </div>
 
                     <hr class="card-divider">
@@ -1151,19 +1180,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     </script>
     <script>
         // Modal functions
-        function showWarningModal() {
-            const modal = document.getElementById('warningModal');
-            if (modal) {
-                modal.classList.add('active');
-            }
-        }
-
-        function closeWarningModal() {
-            const modal = document.getElementById('warningModal');
-            if (modal) {
-                modal.classList.remove('active');
-            }
-        }
 
         function showAutoSubmitModal() {
             const modal = document.getElementById('autoSubmitModal');
@@ -1185,18 +1201,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
 
-        // Close modal when clicking outside
-        document.getElementById('warningModal')?.addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeWarningModal();
-            }
-        });
 
         // Disable context menu and common developer shortcuts
-        const blockMessage = 'This action is disabled on this page.';
         document.addEventListener('contextmenu', (event) => {
             event.preventDefault();
-            showWarningModal();
         });
         document.addEventListener('keydown', (event) => {
             const key = event.key.toLowerCase();
@@ -1208,27 +1216,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             ) {
                 event.preventDefault();
                 event.stopPropagation();
-                showWarningModal();
                 return false;
             }
             return true;
         });
 
-        // Guard: Allow reload (progress is auto-saved), but warn on navigation away
+        // Guard: Allow reload (progress is auto-saved)
         let guardEnabled = true;
-        
-        // onbeforeunload: Show warning, DON'T stop timer (user might cancel)
-        window.onbeforeunload = function(e) {
-            if (!guardEnabled) return;
-            
-            // Show warning message
-            const message = 'Are you sure you want to leave? Your progress is saved, but you may lose your current position.';
-            e = e || window.event;
-            if (e) e.returnValue = message;
-            
-            // DON'T stop timer here - user might click Cancel
-            return message;
-        };
         
         // unload: Fires ONLY when page is actually unloading (after user confirms Leave)
         // This does NOT fire when user clicks Cancel
@@ -1253,7 +1247,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         window.addEventListener('keydown', function(e) {
             if (e.key === 'F5' || (e.ctrlKey && e.key.toLowerCase() === 'r')) {
                 e.preventDefault();
-                showWarningModal();
             }
         });
         // Note: Page reload is now supported - quiz state is restored from server
@@ -1355,7 +1348,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         function updateNav() {
             document.getElementById("prevBtn").disabled = currentBlock === 0;
             document.getElementById("nextBtn").style.display = currentBlock === totalBlocks - 1 ? "none" : "inline-flex";
-            document.getElementById("submitBtn").style.display = currentBlock === totalBlocks - 1 ? "inline-flex" : "none";
         }
         function changePage(step) {
             document.getElementById(`block-${currentBlock}`).classList.remove("active");
@@ -1449,15 +1441,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     return;
                 }
                 
-            if (timeLeft <= 0) {
+                if (timeLeft <= 0) {
                     clearInterval(timerInterval);
                     timerInterval = null;
-                showAutoSubmitModal();
+                    showAutoSubmitModal();
                 } else {
-            timeLeft--;
+                    timeLeft--;
                     updateTimerDisplay();
                 }
-        }, 1000);
+            }, 1000);
         }
         
         // CRITICAL: Sync timer with server FIRST before starting
