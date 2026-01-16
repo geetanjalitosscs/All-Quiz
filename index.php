@@ -22,7 +22,7 @@
       </div>
       <div class="header-meta">
         <span class="header-meta-pill">Secure Proctored Session</span>
-        <span>Approx. duration: 60 min</span>
+        <span>Approx. duration: 45 min</span>
       </div>
     </div>
   </header>
