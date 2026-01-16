@@ -986,6 +986,14 @@ input:not(:placeholder-shown):valid:not([readonly]) {
   margin-bottom: 0 !important;
 }
 
+/* Submit button in sidebar should be auto width (fit content) and centered */
+.quiz-sidebar-card #submitBtn.btn-primary,
+.quiz-sidebar-card .btn-primary#submitBtn {
+  width: fit-content !important;
+  min-width: fit-content;
+  max-width: 100%;
+}
+
 /* Ensure sidebar scrolls independently */
 .quiz-layout {
   align-items: flex-start;
@@ -1001,7 +1009,7 @@ input:not(:placeholder-shown):valid:not([readonly]) {
   color: #ffffff;
   box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 
 .timer-label {
@@ -1034,7 +1042,8 @@ input:not(:placeholder-shown):valid:not([readonly]) {
   margin-top: 12px;
   max-height: 300px;
   overflow-y: auto;
-  padding-right: 4px;
+  overflow-x: visible;
+  padding: 4px 4px 4px 2px;
 }
 
 .progress-dot {
@@ -1052,13 +1061,20 @@ input:not(:placeholder-shown):valid:not([readonly]) {
   cursor: pointer;
   transition: all 0.2s ease;
   user-select: none;
+  position: relative;
+  box-sizing: border-box;
 }
 
 .progress-dot:hover {
   background: #f3f4f6;
-  border-color: #3b82f6;
+  border-color: #3b82f6 !important;
+  border-width: 2px !important;
+  border-style: solid !important;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+  z-index: 10;
+  position: relative;
+  outline: none;
 }
 
 .progress-dot:active {
