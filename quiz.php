@@ -346,7 +346,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </div>
             <div class='modal-body'>
                 <p class='modal-message'>
-                    <strong>You have an active quiz in progress in this browser.</strong><br><br>
+                    <strong>You have an active quiz in progress in the browser.</strong><br><br>
                     Please finish the current quiz first. You can start a new quiz only after completing or waiting for the current quiz to expire (45 minutes from start time).
                 </p>
                 <div style='background: #f9fafb; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e5e7eb;'>
