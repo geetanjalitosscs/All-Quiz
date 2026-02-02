@@ -27,6 +27,7 @@ $roleToTable = [
     'Flutter Developer' => 'flutter_mcq_questions',
     'Mern Developer' => 'mern_mcq_questions',
     'Full Stack Developer' => 'fullstack_mcq_questions',
+    'Data Analytics' => 'data_analytics_mcq',
 ];
 
 // Auto-detect table from role

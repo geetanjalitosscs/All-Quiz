@@ -184,6 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET') {
         'Flutter Developer' => 'flutter_mcq_questions',
         'Mern Developer'    => 'mern_mcq_questions',
         'Full Stack Developer' => 'fullstack_mcq_questions',
+        'Data Analytics' => 'data_analytics_mcq',
     ];
     $questionsTable = $roleToTable[$role] ?? null;
     if ($questionsTable === null) {
@@ -388,6 +389,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         'Flutter Developer' => 'flutter_mcq_questions',
         'Mern Developer'    => 'mern_mcq_questions',
         'Full Stack Developer' => 'fullstack_mcq_questions',
+        'Data Analytics' => 'data_analytics_mcq',
     ];
 
     if (!isset($roleToTable[$role])) {

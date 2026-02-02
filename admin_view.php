@@ -89,6 +89,7 @@ $users = $conn->query("SELECT * FROM users ORDER BY submitted_at DESC");
                             'Flutter Developer' => 'flutter_mcq_questions',
                             'Mern Developer'    => 'mern_mcq_questions',
                             'Full Stack Developer' => 'fullstack_mcq_questions',
+                            'Data Analytics' => 'data_analytics_mcq',
                         ];
                         $questionsTable = $roleToTable[$role] ?? null;
 

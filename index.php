@@ -66,6 +66,7 @@
           <option value="Flutter Developer" <?php echo (isset($_GET['role']) && $_GET['role'] === 'Flutter Developer') ? 'selected' : ''; ?>>Flutter Developer</option>
           <option value="Mern Developer" <?php echo (isset($_GET['role']) && $_GET['role'] === 'Mern Developer') ? 'selected' : ''; ?>>Mern Developer</option>
           <option value="Full Stack Developer" <?php echo (isset($_GET['role']) && $_GET['role'] === 'Full Stack Developer') ? 'selected' : ''; ?>>Full Stack Developer</option>
+          <option value="Data Analytics" <?php echo (isset($_GET['role']) && $_GET['role'] === 'Data Analytics') ? 'selected' : ''; ?>>Data Analytics</option>
         </select>
       </div>
 
