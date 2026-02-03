@@ -102,4 +102,4 @@ try {
         exit('Database connection error! Please contact the administrator.');
     }
 }
-?> 
+

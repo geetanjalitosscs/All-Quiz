@@ -122,6 +122,42 @@ if ($environment === 'local') {
 define('SERVER_HOST', $envVars['SERVER_HOST'] ?? getenv('SERVER_HOST') ?: '0.0.0.0');
 define('SERVER_PORT', $envVars['SERVER_PORT'] ?? getenv('SERVER_PORT') ?: '8087');
 
+// ===============================
+// Session Configuration
+// ===============================
+// Configure session save path for cPanel compatibility
+if ($environment === 'server') {
+    // Try to use project sessions directory first
+    $session_dir = __DIR__ . '/sessions';
+    
+    // Create sessions directory if it doesn't exist
+    if (!is_dir($session_dir)) {
+        @mkdir($session_dir, 0755, true);
+    }
+    
+    // Set session save path if directory exists and is writable
+    if (is_dir($session_dir) && is_writable($session_dir)) {
+        ini_set('session.save_path', $session_dir);
+    } else {
+        // Fallback: Try to use system temp directory
+        $temp_dir = sys_get_temp_dir();
+        if (is_writable($temp_dir)) {
+            $fallback_session_dir = $temp_dir . '/quiz_sessions';
+            if (!is_dir($fallback_session_dir)) {
+                @mkdir($fallback_session_dir, 0755, true);
+            }
+            if (is_dir($fallback_session_dir) && is_writable($fallback_session_dir)) {
+                ini_set('session.save_path', $fallback_session_dir);
+            }
+        }
+    }
+}
+
+// Session settings for better security and compatibility
+ini_set('session.cookie_httponly', '1');
+ini_set('session.use_only_cookies', '1');
+ini_set('session.cookie_samesite', 'Lax');
+
 // Export database config globally
 $GLOBALS['db_config'] = $db_config;
 $GLOBALS['app_environment'] = $environment;
@@ -134,6 +170,4 @@ if (!defined('DB_HOST')) {
     define('DB_NAME', $db_config['name']);
     define('DB_PORT', $db_config['port']);
 }
-?>
-
 

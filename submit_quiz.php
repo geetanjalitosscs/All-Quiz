@@ -151,4 +151,4 @@ foreach ($allQuestionIds as $qid) {
 }
 
 header("Location: show_result.php?user_id=$user_id");
-?>
+exit;

@@ -26,6 +26,9 @@ desktop.ini
 *.temp
 *.cache
 
+# Sessions directory
+sessions/
+
 # Database backups
 *.sql.bak
 *.sql.gz
@@ -44,13 +47,6 @@ package-lock.json
 # Configuration files
 db.php
 config.php
-
-
-
-
-
-
-
 
 *.sql
 config.server.php
