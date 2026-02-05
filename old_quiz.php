@@ -8,128 +8,6 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 /**
- * Helper to fetch question rows with correct_option from a prepared statement.
- *
- * @param mysqli_stmt $stmt
- * @return array<int, array<string, mixed>>
- */
-function fetchQuestionsFromStatementWithCorrect(mysqli_stmt $stmt): array
-{
-    $questions = [];
-    $stmt->store_result();
-
-    if ($stmt->num_rows === 0) {
-        return $questions;
-    }
-
-    $stmt->bind_result($id, $question, $optionA, $optionB, $optionC, $optionD, $correctOption);
-    while ($stmt->fetch()) {
-        $questions[] = [
-            'id'        => $id,
-            'question'  => $question ?? '',
-            'option_a'  => $optionA ?? '',
-            'option_b'  => $optionB ?? '',
-            'option_c'  => $optionC ?? '',
-            'option_d'  => $optionD ?? '',
-            'correct_option' => $correctOption ?? ''
-        ];
-    }
-    $stmt->close();
-    return $questions;
-}
-
-/**
- * Distribute questions by correct option to ensure balanced distribution
- *
- * @param array $allQuestions All available questions
- * @param int $targetCount Target number of questions to select
- * @return array Selected questions with balanced distribution
- */
-function distributeQuestionsByCorrectOption(array $allQuestions, int $targetCount): array
-{
-    // Group questions by correct option
-    $questionsByOption = [
-        'A' => [],
-        'B' => [],
-        'C' => [],
-        'D' => []
-    ];
-    
-    foreach ($allQuestions as $question) {
-        $correctOption = strtoupper(trim($question['correct_option'] ?? ''));
-        if (isset($questionsByOption[$correctOption])) {
-            $questionsByOption[$correctOption][] = $question;
-        }
-    }
-    
-    // Calculate target distribution (as even as possible)
-    $baseCount = intval($targetCount / 4); // Base questions per option
-    $remainder = $targetCount % 4; // Extra questions to distribute
-    
-    $targetDistribution = [
-        'A' => $baseCount,
-        'B' => $baseCount,
-        'C' => $baseCount,
-        'D' => $baseCount
-    ];
-    
-    // Distribute remainder to first few options
-    $options = ['A', 'B', 'C', 'D'];
-    for ($i = 0; $i < $remainder; $i++) {
-        $targetDistribution[$options[$i]]++;
-    }
-    
-    // Select questions from each option
-    $selectedQuestions = [];
-    foreach ($options as $option) {
-        $availableQuestions = $questionsByOption[$option];
-        $targetCountForOption = $targetDistribution[$option];
-        
-        if (count($availableQuestions) >= $targetCountForOption) {
-            // Randomly select required number from available questions
-            shuffle($availableQuestions);
-            $selectedQuestions = array_merge(
-                $selectedQuestions,
-                array_slice($availableQuestions, 0, $targetCountForOption)
-            );
-        } else {
-            // Take all available if not enough
-            $selectedQuestions = array_merge(
-                $selectedQuestions,
-                $availableQuestions
-            );
-        }
-    }
-    
-    // If we don't have enough questions with balanced distribution,
-    // fill remaining slots with random questions
-    if (count($selectedQuestions) < $targetCount) {
-        $remainingNeeded = $targetCount - count($selectedQuestions);
-        $usedIds = array_column($selectedQuestions, 'id');
-        
-        // Find unused questions
-        $remainingQuestions = array_filter($allQuestions, function($q) use ($usedIds) {
-            return !in_array($q['id'], $usedIds);
-        });
-        
-        shuffle($remainingQuestions);
-        $selectedQuestions = array_merge(
-            $selectedQuestions,
-            array_slice($remainingQuestions, 0, $remainingNeeded)
-        );
-    }
-    
-    // Final shuffle to randomize order
-    shuffle($selectedQuestions);
-    
-    // Remove correct_option from final output (not needed in frontend)
-    return array_map(function($q) {
-        unset($q['correct_option']);
-        return $q;
-    }, $selectedQuestions);
-}
-
-/**
  * Helper to fetch question rows from a prepared statement without relying on mysqlnd get_result().
  *
  * @param mysqli_stmt $stmt
@@ -152,7 +30,7 @@ function fetchQuestionsFromStatement(mysqli_stmt $stmt): array
             'option_a'  => $optionA ?? '',
             'option_b'  => $optionB ?? '',
             'option_c'  => $optionC ?? '',
-            'option_d'  => $optionD ?? ''
+            'option_d'  => $optionD ?? '',
         ];
     }
 
@@ -852,43 +730,38 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $levelCandidates[] = 'advanced';
     }
 
-    // Fetch questions with balanced distribution of correct answers (A, B, C, D)
-    // Target: ~12-13 questions per correct option for 50 total questions
-    $baseSelect = "SELECT id, question, option_a, option_b, option_c, option_d, correct_option FROM {$questionsTable}";
+    $baseSelect = "SELECT id, question, option_a, option_b, option_c, option_d FROM {$questionsTable}";
     $hasRoleCol = in_array($questionsTable, ['backend_mcq_questions','mern_mcq_questions','python_mcq_questions','fullstack_mcq_questions','flutter_mcq_questions'], true);
 
     // First attempt: filter by level (IN) and role (case-insensitive) where applicable
     if ($hasRoleCol) {
-        $sql = $baseSelect . " WHERE LOWER(level) IN (?, ?) AND LOWER(role) = LOWER(?) ORDER BY RAND()";
+        $sql = $baseSelect . " WHERE LOWER(level) IN (?, ?) AND LOWER(role) = LOWER(?) ORDER BY RAND() LIMIT 50";
         $stmtQ = $conn->prepare($sql);
         $levelA = strtolower($levelCandidates[0]);
         $levelB = isset($levelCandidates[1]) ? strtolower($levelCandidates[1]) : strtolower($levelCandidates[0]);
         $stmtQ->bind_param("sss", $levelA, $levelB, $role);
     } else {
-        $sql = $baseSelect . " WHERE LOWER(level) IN (?, ?) ORDER BY RAND()";
+        $sql = $baseSelect . " WHERE LOWER(level) IN (?, ?) ORDER BY RAND() LIMIT 50";
         $stmtQ = $conn->prepare($sql);
         $levelA = strtolower($levelCandidates[0]);
         $levelB = isset($levelCandidates[1]) ? strtolower($levelCandidates[1]) : strtolower($levelCandidates[0]);
         $stmtQ->bind_param("ss", $levelA, $levelB);
     }
     $stmtQ->execute();
-    $all_questions = fetchQuestionsFromStatementWithCorrect($stmtQ);
+    $question_data = fetchQuestionsFromStatement($stmtQ);
 
     // Fallback: if none found and table has role, ignore role filter and just match level
-    if (count($all_questions) === 0 && $hasRoleCol) {
+    if (count($question_data) === 0 && $hasRoleCol) {
         $stmtQ->close();
-        $sql = $baseSelect . " WHERE LOWER(level) IN (?, ?) ORDER BY RAND()";
+        $sql = $baseSelect . " WHERE LOWER(level) IN (?, ?) ORDER BY RAND() LIMIT 50";
         $stmtQ = $conn->prepare($sql);
         $stmtQ->bind_param("ss", $levelA, $levelB);
         $stmtQ->execute();
-        $all_questions = fetchQuestionsFromStatementWithCorrect($stmtQ);
+        $question_data = fetchQuestionsFromStatement($stmtQ);
     }
-    if (count($all_questions) === 0) {
+    if (count($question_data) === 0) {
         die("No questions found for {$role} ({$level}). Please contact the administrator.");
     }
-    
-    // Distribute questions by correct option (A, B, C, D)
-    $question_data = distributeQuestionsByCorrectOption($all_questions, 50);
     
     // ============================================
     // SESSION-BASED QUIZ ATTEMPT MANAGEMENT

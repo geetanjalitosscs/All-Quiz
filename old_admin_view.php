@@ -45,26 +45,18 @@ $users = $conn->query("SELECT * FROM users ORDER BY submitted_at DESC");
                         class="form-control filter-input"
                         placeholder="Search by name, email, phone, role, or location"
                     >
-                    <div class="bulk-actions" id="bulkActions" style="display: none;">
-                        <button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn">
-                            🗑️ Delete Selected (<span id="selectedCount">0</span>)
-                        </button>
-                    </div>
                 </div>
 
                 <div class="table-shell">
                     <table class="table" id="usersTable">
                         <thead>
                             <tr>
-                                <th style="width: 50px;">
-                                    <input type="checkbox" id="selectAll" class="form-checkbox">
-                                </th>
                                 <th>#</th>
                                 <th>Candidate</th>
                                 <th>Role &amp; Level</th>
                                 <th>Score</th>
                                 <th>Time Details</th>
-                                <th>Actions</th>
+                                <th>Details</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -231,8 +223,7 @@ $users = $conn->query("SELECT * FROM users ORDER BY submitted_at DESC");
                     }
 
                     $mobile = !empty($u['mobile']) ? htmlspecialchars($u['mobile']) : '-';
-                    echo "<tr data-user-id='{$user_id}'>";
-                    echo "<td><input type='checkbox' class='user-checkbox form-checkbox' data-user-id='{$user_id}'></td>";
+                    echo "<tr>";
                     echo "<td>{$count}</td>";
                     echo "<td><div>" . htmlspecialchars($u['name']) . "</div><div class='text-muted' style='font-size:12px;'>" . htmlspecialchars($u['email']) . "</div><div class='text-muted' style='font-size:12px;'>" . $mobile . "</div></td>";
                     echo "<td><span class='pill-role'>" . htmlspecialchars($u['role']) . "</span><br><span style='font-size:12px;' class='text-muted'>" . htmlspecialchars($u['level']) . " · " . htmlspecialchars($u['place']) . "</span></td>";
@@ -242,15 +233,12 @@ $users = $conn->query("SELECT * FROM users ORDER BY submitted_at DESC");
                     echo "<div><strong>Submit:</strong> " . $submitTimeDisplay . "</div>";
                     echo "<div><strong>Duration:</strong> " . $durationDisplay . "</div>";
                     echo "</div></td>";
-                    echo "<td><div class='action-buttons'>";
-                    echo "<a href='admin_result.php?user_id={$u['id']}' class='muted-link' style='margin-right: 10px;'>View →</a>";
-                    echo "<button type='button' class='btn btn-danger btn-xs delete-btn' data-user-id='{$user_id}' data-user-name='" . htmlspecialchars($u['name']) . "'>🗑️ Delete</button>";
-                    echo "</div></td>";
+                    echo "<td><a href='admin_result.php?user_id={$u['id']}' class='muted-link'>View breakdown →</a></td>";
                     echo "</tr>";
                     $count++;
                 }
             } else {
-                    echo "<tr><td colspan='7'><div class='empty-state'>No user submissions found.</div></td></tr>";
+                    echo "<tr><td colspan='6'><div class='empty-state'>No user submissions found.</div></td></tr>";
             }
             ?>
                         </tbody>
@@ -259,237 +247,10 @@ $users = $conn->query("SELECT * FROM users ORDER BY submitted_at DESC");
             </section>
     </div>
     </main>
-
-    <!-- Delete Confirmation Modal -->
-    <div class="modal-overlay" id="deleteModal" style="display: none;">
-        <div class="modal-dialog">
-            <div class="modal-header" style="background: linear-gradient(135deg, #fee2e2, #fef2f2);">
-                <h2 class="modal-title" style="color: #b91c1c;">Confirm Delete</h2>
-            </div>
-            <div class="modal-body">
-                <p class="modal-message" id="deleteMessage">
-                    Are you sure you want to delete this user's data? This action cannot be undone.
-                </p>
-                <div style="background: #fef3c7; padding: 12px; border-radius: 6px; margin: 15px 0; border: 1px solid #fde68a;">
-                    <strong>⚠️ Warning:</strong> This will permanently delete:
-                    <ul style="margin: 8px 0 0 20px; font-size: 14px;">
-                        <li>User information and quiz attempts</li>
-                        <li>All submitted answers and responses</li>
-                        <li>Quiz progress and saved data</li>
-                    </ul>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-outline" id="cancelDelete">Cancel</button>
-                    <button type="button" class="btn btn-danger" id="confirmDelete">Delete Permanently</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Success Modal -->
-    <div class="modal-overlay" id="successModal" style="display: none;">
-        <div class="modal-dialog success-modal">
-            <div class="modal-header" style="background: linear-gradient(135deg, #dcfce7, #bbf7d0);">
-                <h2 class="modal-title" style="color: #166534;">✅ Success!</h2>
-            </div>
-            <div class="modal-body">
-                <div class="success-icon">🎉</div>
-                <p class="modal-message" id="successMessage">
-                    User(s) deleted successfully!
-                </p>
-                <div class="success-details" id="successDetails">
-                    <div class="success-stats">
-                        <div class="stat-item">
-                            <div class="stat-number" id="deletedCount">0</div>
-                            <div class="stat-label">Users Deleted</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-number">✓</div>
-                            <div class="stat-label">Data Cleaned</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-primary" id="closeSuccess">Continue</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script>
         // Simple client-side filtering (UI-only)
         const filterInput = document.getElementById('filterSearch');
         const usersTable = document.getElementById('usersTable');
-        const selectAllCheckbox = document.getElementById('selectAll');
-        const bulkActions = document.getElementById('bulkActions');
-        const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
-        const selectedCountSpan = document.getElementById('selectedCount');
-        const deleteModal = document.getElementById('deleteModal');
-        const deleteMessage = document.getElementById('deleteMessage');
-        const confirmDeleteBtn = document.getElementById('confirmDelete');
-        const cancelDeleteBtn = document.getElementById('cancelDelete');
-        
-        // Success modal elements
-        const successModal = document.getElementById('successModal');
-        const successMessage = document.getElementById('successMessage');
-        const successDetails = document.getElementById('successDetails');
-        const deletedCountSpan = document.getElementById('deletedCount');
-        const closeSuccessBtn = document.getElementById('closeSuccess');
-        
-        let usersToDelete = [];
-        let deleteType = ''; // 'single' or 'bulk'
-        
-        // Update bulk actions visibility
-        function updateBulkActions() {
-            const checkedBoxes = document.querySelectorAll('.user-checkbox:checked');
-            const count = checkedBoxes.length;
-            
-            selectedCountSpan.textContent = count;
-            bulkActions.style.display = count > 0 ? 'block' : 'none';
-        }
-        
-        // Select all functionality
-        selectAllCheckbox.addEventListener('change', function() {
-            const checkboxes = document.querySelectorAll('.user-checkbox');
-            checkboxes.forEach(checkbox => {
-                checkbox.checked = this.checked;
-            });
-            updateBulkActions();
-        });
-        
-        // Individual checkbox change
-        document.addEventListener('change', function(e) {
-            if (e.target.classList.contains('user-checkbox')) {
-                updateBulkActions();
-                
-                // Update select all state
-                const allCheckboxes = document.querySelectorAll('.user-checkbox');
-                const checkedBoxes = document.querySelectorAll('.user-checkbox:checked');
-                selectAllCheckbox.checked = allCheckboxes.length === checkedBoxes.length;
-                selectAllCheckbox.indeterminate = checkedBoxes.length > 0 && checkedBoxes.length < allCheckboxes.length;
-            }
-        });
-        
-        // Individual delete button
-        document.addEventListener('click', function(e) {
-            if (e.target.classList.contains('delete-btn')) {
-                const userId = e.target.dataset.userId;
-                const userName = e.target.dataset.userName;
-                usersToDelete = [userId];
-                deleteType = 'single';
-                
-                deleteMessage.innerHTML = `Are you sure you want to delete <strong>${userName}</strong>'s data? This action cannot be undone.`;
-                deleteModal.style.display = 'flex';
-            }
-        });
-        
-        // Bulk delete button
-        bulkDeleteBtn.addEventListener('click', function() {
-            const checkedBoxes = document.querySelectorAll('.user-checkbox:checked');
-            usersToDelete = Array.from(checkedBoxes).map(cb => cb.dataset.userId);
-            deleteType = 'bulk';
-            
-            deleteMessage.innerHTML = `Are you sure you want to delete <strong>${usersToDelete.length}</strong> user(s)? This action cannot be undone.`;
-            deleteModal.style.display = 'flex';
-        });
-        
-        // Cancel delete
-        cancelDeleteBtn.addEventListener('click', function() {
-            deleteModal.style.display = 'none';
-            usersToDelete = [];
-            deleteType = '';
-        });
-        
-        // Confirm delete
-        confirmDeleteBtn.addEventListener('click', function() {
-            if (usersToDelete.length === 0) return;
-            
-            // Disable button during deletion
-            confirmDeleteBtn.disabled = true;
-            confirmDeleteBtn.textContent = 'Deleting...';
-            
-            // Send delete request
-            fetch('delete_users.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: new URLSearchParams({
-                    user_ids: usersToDelete.join(','),
-                    type: deleteType
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Remove deleted rows from table
-                    usersToDelete.forEach(userId => {
-                        const row = document.querySelector(`tr[data-user-id="${userId}"]`);
-                        if (row) {
-                            row.remove();
-                        }
-                    });
-                    
-                    // Reset UI
-                    deleteModal.style.display = 'none';
-                    usersToDelete = [];
-                    deleteType = '';
-                    updateBulkActions();
-                    
-                    // Show beautiful success modal
-                    deletedCountSpan.textContent = data.deleted_count || usersToDelete.length;
-                    
-                    if (data.deleted_count === 1) {
-                        successMessage.textContent = 'User deleted successfully!';
-                    } else {
-                        successMessage.textContent = `${data.deleted_count} users deleted successfully!`;
-                    }
-                    
-                    successModal.style.display = 'flex';
-                    
-                    // Auto-close after 3 seconds and reload
-                    setTimeout(() => {
-                        successModal.style.display = 'none';
-                        window.location.reload();
-                    }, 3000);
-                } else {
-                    alert('Error deleting users: ' + (data.error || 'Unknown error'));
-                }
-            })
-            .catch(error => {
-                console.error('Delete error:', error);
-                alert('Error deleting users. Please try again.');
-            })
-            .finally(() => {
-                // Re-enable button
-                confirmDeleteBtn.disabled = false;
-                confirmDeleteBtn.textContent = 'Delete Permanently';
-            });
-        });
-        
-        // Close modal on overlay click
-        deleteModal.addEventListener('click', function(e) {
-            if (e.target === deleteModal) {
-                deleteModal.style.display = 'none';
-                usersToDelete = [];
-                deleteType = '';
-            }
-        });
-        
-        // Success modal close button
-        closeSuccessBtn.addEventListener('click', function() {
-            successModal.style.display = 'none';
-            window.location.reload();
-        });
-        
-        // Close success modal on overlay click
-        successModal.addEventListener('click', function(e) {
-            if (e.target === successModal) {
-                successModal.style.display = 'none';
-                window.location.reload();
-            }
-        });
-        
         if (filterInput && usersTable) {
             filterInput.addEventListener('input', function () {
                 const query = this.value.toLowerCase().trim();
