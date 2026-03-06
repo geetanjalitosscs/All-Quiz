@@ -155,7 +155,7 @@ All-Assessment-Quiz/
 - Right-click and developer tools are disabled for quiz security
 - Quiz timer is set to **45 minutes** (2700 seconds, configurable in quiz.php)
 - All user data and quiz responses are stored in the MySQL database
-- The application supports 5 developer roles: Backend, Python, Flutter, MERN, Full Stack
+- The application supports 6 developer roles: Backend, Python, Flutter, MERN, Full Stack, Data Analytics
 - Each quiz contains 50 randomly selected questions based on role and level
 - Questions are paginated (1 question per page) for better user experience
 - Dark mode is available in the quiz interface
